@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 1528131479;
+  int get rustContentHash => -848429903;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -87,6 +87,8 @@ abstract class RustLibApi extends BaseApi {
     required List<String> photos,
   });
 
+  Future<void> crateApiPhotoStoreClearPin({required PhotoStore that});
+
   Future<Album> crateApiPhotoStoreCreateAlbum({
     required PhotoStore that,
     required String name,
@@ -102,6 +104,18 @@ abstract class RustLibApi extends BaseApi {
     required String path,
   });
 
+  Future<void> crateApiPhotoStoreDeleteSecureItem({
+    required PhotoStore that,
+    required String name,
+  });
+
+  Future<void> crateApiPhotoStoreDeleteTrashItem({
+    required PhotoStore that,
+    required String name,
+  });
+
+  Future<void> crateApiPhotoStoreEmptyTrash({required PhotoStore that});
+
   Future<List<String>> crateApiPhotoStoreFavoritePaths({
     required PhotoStore that,
   });
@@ -113,7 +127,27 @@ abstract class RustLibApi extends BaseApi {
 
   Future<List<Album>> crateApiPhotoStoreListAlbums({required PhotoStore that});
 
+  Future<List<MovedEntry>> crateApiPhotoStoreListSecure({
+    required PhotoStore that,
+  });
+
+  Future<List<MovedEntry>> crateApiPhotoStoreListTrash({
+    required PhotoStore that,
+  });
+
+  Future<MovedEntry> crateApiPhotoStoreMoveToSecure({
+    required PhotoStore that,
+    required String path,
+  });
+
+  Future<MovedEntry> crateApiPhotoStoreMoveToTrash({
+    required PhotoStore that,
+    required String path,
+  });
+
   Future<PhotoStore> crateApiPhotoStoreNew({required String configDir});
+
+  Future<bool> crateApiPhotoStorePinIsSet({required PhotoStore that});
 
   Future<Album> crateApiPhotoStoreRemovePhotosFromAlbum({
     required PhotoStore that,
@@ -127,7 +161,22 @@ abstract class RustLibApi extends BaseApi {
     required String newName,
   });
 
+  Future<void> crateApiPhotoStoreRestoreSecure({
+    required PhotoStore that,
+    required String name,
+  });
+
+  Future<void> crateApiPhotoStoreRestoreTrash({
+    required PhotoStore that,
+    required String name,
+  });
+
   Future<List<Photo>> crateApiPhotoStoreScanDirectory({
+    required PhotoStore that,
+    required String root,
+  });
+
+  Future<List<VideoFile>> crateApiPhotoStoreScanVideos({
     required PhotoStore that,
     required String root,
   });
@@ -138,10 +187,20 @@ abstract class RustLibApi extends BaseApi {
     required bool isFavorite,
   });
 
+  Future<void> crateApiPhotoStoreSetPin({
+    required PhotoStore that,
+    required String pin,
+  });
+
   Future<Uint8List?> crateApiPhotoStoreThumbnailBytes({
     required PhotoStore that,
     required String path,
     required int size,
+  });
+
+  Future<bool> crateApiPhotoStoreVerifyPin({
+    required PhotoStore that,
+    required String pin,
   });
 
   String crateApiGreet({required String name});
@@ -206,6 +265,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiPhotoStoreClearPin({required PhotoStore that}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPhotoStore(
+            that,
+            serializer,
+          );
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 2,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPhotoStoreClearPinConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhotoStoreClearPinConstMeta => const TaskConstMeta(
+    debugName: "PhotoStore_clear_pin",
+    argNames: ["that"],
+  );
+
+  @override
   Future<Album> crateApiPhotoStoreCreateAlbum({
     required PhotoStore that,
     required String name,
@@ -222,7 +314,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 2,
+            funcId: 3,
             port: port_,
           );
         },
@@ -260,7 +352,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 3,
+            funcId: 4,
             port: port_,
           );
         },
@@ -298,7 +390,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 4,
+            funcId: 5,
             port: port_,
           );
         },
@@ -320,6 +412,116 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiPhotoStoreDeleteSecureItem({
+    required PhotoStore that,
+    required String name,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPhotoStore(
+            that,
+            serializer,
+          );
+          sse_encode_String(name, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 6,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPhotoStoreDeleteSecureItemConstMeta,
+        argValues: [that, name],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhotoStoreDeleteSecureItemConstMeta =>
+      const TaskConstMeta(
+        debugName: "PhotoStore_delete_secure_item",
+        argNames: ["that", "name"],
+      );
+
+  @override
+  Future<void> crateApiPhotoStoreDeleteTrashItem({
+    required PhotoStore that,
+    required String name,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPhotoStore(
+            that,
+            serializer,
+          );
+          sse_encode_String(name, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 7,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPhotoStoreDeleteTrashItemConstMeta,
+        argValues: [that, name],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhotoStoreDeleteTrashItemConstMeta =>
+      const TaskConstMeta(
+        debugName: "PhotoStore_delete_trash_item",
+        argNames: ["that", "name"],
+      );
+
+  @override
+  Future<void> crateApiPhotoStoreEmptyTrash({required PhotoStore that}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPhotoStore(
+            that,
+            serializer,
+          );
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 8,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPhotoStoreEmptyTrashConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhotoStoreEmptyTrashConstMeta =>
+      const TaskConstMeta(
+        debugName: "PhotoStore_empty_trash",
+        argNames: ["that"],
+      );
+
+  @override
   Future<List<String>> crateApiPhotoStoreFavoritePaths({
     required PhotoStore that,
   }) {
@@ -334,7 +536,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 5,
+            funcId: 9,
             port: port_,
           );
         },
@@ -372,7 +574,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 10,
             port: port_,
           );
         },
@@ -406,7 +608,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 7,
+            funcId: 11,
             port: port_,
           );
         },
@@ -428,6 +630,154 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<List<MovedEntry>> crateApiPhotoStoreListSecure({
+    required PhotoStore that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPhotoStore(
+            that,
+            serializer,
+          );
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 12,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_moved_entry,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPhotoStoreListSecureConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhotoStoreListSecureConstMeta =>
+      const TaskConstMeta(
+        debugName: "PhotoStore_list_secure",
+        argNames: ["that"],
+      );
+
+  @override
+  Future<List<MovedEntry>> crateApiPhotoStoreListTrash({
+    required PhotoStore that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPhotoStore(
+            that,
+            serializer,
+          );
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 13,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_moved_entry,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPhotoStoreListTrashConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhotoStoreListTrashConstMeta =>
+      const TaskConstMeta(
+        debugName: "PhotoStore_list_trash",
+        argNames: ["that"],
+      );
+
+  @override
+  Future<MovedEntry> crateApiPhotoStoreMoveToSecure({
+    required PhotoStore that,
+    required String path,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPhotoStore(
+            that,
+            serializer,
+          );
+          sse_encode_String(path, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 14,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_moved_entry,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPhotoStoreMoveToSecureConstMeta,
+        argValues: [that, path],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhotoStoreMoveToSecureConstMeta =>
+      const TaskConstMeta(
+        debugName: "PhotoStore_move_to_secure",
+        argNames: ["that", "path"],
+      );
+
+  @override
+  Future<MovedEntry> crateApiPhotoStoreMoveToTrash({
+    required PhotoStore that,
+    required String path,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPhotoStore(
+            that,
+            serializer,
+          );
+          sse_encode_String(path, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 15,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_moved_entry,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPhotoStoreMoveToTrashConstMeta,
+        argValues: [that, path],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhotoStoreMoveToTrashConstMeta =>
+      const TaskConstMeta(
+        debugName: "PhotoStore_move_to_trash",
+        argNames: ["that", "path"],
+      );
+
+  @override
   Future<PhotoStore> crateApiPhotoStoreNew({required String configDir}) {
     return handler.executeNormal(
       NormalTask(
@@ -437,7 +787,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 8,
+            funcId: 16,
             port: port_,
           );
         },
@@ -455,6 +805,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiPhotoStoreNewConstMeta =>
       const TaskConstMeta(debugName: "PhotoStore_new", argNames: ["configDir"]);
+
+  @override
+  Future<bool> crateApiPhotoStorePinIsSet({required PhotoStore that}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPhotoStore(
+            that,
+            serializer,
+          );
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 17,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_bool,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPhotoStorePinIsSetConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhotoStorePinIsSetConstMeta => const TaskConstMeta(
+    debugName: "PhotoStore_pin_is_set",
+    argNames: ["that"],
+  );
 
   @override
   Future<Album> crateApiPhotoStoreRemovePhotosFromAlbum({
@@ -475,7 +858,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 9,
+            funcId: 18,
             port: port_,
           );
         },
@@ -515,7 +898,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 10,
+            funcId: 19,
             port: port_,
           );
         },
@@ -537,6 +920,82 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiPhotoStoreRestoreSecure({
+    required PhotoStore that,
+    required String name,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPhotoStore(
+            that,
+            serializer,
+          );
+          sse_encode_String(name, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 20,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPhotoStoreRestoreSecureConstMeta,
+        argValues: [that, name],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhotoStoreRestoreSecureConstMeta =>
+      const TaskConstMeta(
+        debugName: "PhotoStore_restore_secure",
+        argNames: ["that", "name"],
+      );
+
+  @override
+  Future<void> crateApiPhotoStoreRestoreTrash({
+    required PhotoStore that,
+    required String name,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPhotoStore(
+            that,
+            serializer,
+          );
+          sse_encode_String(name, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 21,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPhotoStoreRestoreTrashConstMeta,
+        argValues: [that, name],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhotoStoreRestoreTrashConstMeta =>
+      const TaskConstMeta(
+        debugName: "PhotoStore_restore_trash",
+        argNames: ["that", "name"],
+      );
+
+  @override
   Future<List<Photo>> crateApiPhotoStoreScanDirectory({
     required PhotoStore that,
     required String root,
@@ -553,7 +1012,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 22,
             port: port_,
           );
         },
@@ -571,6 +1030,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiPhotoStoreScanDirectoryConstMeta =>
       const TaskConstMeta(
         debugName: "PhotoStore_scan_directory",
+        argNames: ["that", "root"],
+      );
+
+  @override
+  Future<List<VideoFile>> crateApiPhotoStoreScanVideos({
+    required PhotoStore that,
+    required String root,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPhotoStore(
+            that,
+            serializer,
+          );
+          sse_encode_String(root, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 23,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_video_file,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPhotoStoreScanVideosConstMeta,
+        argValues: [that, root],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhotoStoreScanVideosConstMeta =>
+      const TaskConstMeta(
+        debugName: "PhotoStore_scan_videos",
         argNames: ["that", "root"],
       );
 
@@ -593,7 +1090,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 12,
+            funcId: 24,
             port: port_,
           );
         },
@@ -615,6 +1112,43 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiPhotoStoreSetPin({
+    required PhotoStore that,
+    required String pin,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPhotoStore(
+            that,
+            serializer,
+          );
+          sse_encode_String(pin, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 25,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPhotoStoreSetPinConstMeta,
+        argValues: [that, pin],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhotoStoreSetPinConstMeta => const TaskConstMeta(
+    debugName: "PhotoStore_set_pin",
+    argNames: ["that", "pin"],
+  );
+
+  @override
   Future<Uint8List?> crateApiPhotoStoreThumbnailBytes({
     required PhotoStore that,
     required String path,
@@ -633,7 +1167,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 13,
+            funcId: 26,
             port: port_,
           );
         },
@@ -655,13 +1189,51 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<bool> crateApiPhotoStoreVerifyPin({
+    required PhotoStore that,
+    required String pin,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPhotoStore(
+            that,
+            serializer,
+          );
+          sse_encode_String(pin, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 27,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_bool,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPhotoStoreVerifyPinConstMeta,
+        argValues: [that, pin],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhotoStoreVerifyPinConstMeta =>
+      const TaskConstMeta(
+        debugName: "PhotoStore_verify_pin",
+        argNames: ["that", "pin"],
+      );
+
+  @override
   String crateApiGreet({required String name}) {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(name, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 28)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -686,7 +1258,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 29,
             port: port_,
           );
         },
@@ -778,6 +1350,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<MovedEntry> dco_decode_list_moved_entry(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_moved_entry).toList();
+  }
+
+  @protected
   List<Photo> dco_decode_list_photo(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_photo).toList();
@@ -787,6 +1365,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  List<VideoFile> dco_decode_list_video_file(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_video_file).toList();
+  }
+
+  @protected
+  MovedEntry dco_decode_moved_entry(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return MovedEntry(
+      name: dco_decode_String(arr[0]),
+      path: dco_decode_String(arr[1]),
+      original: dco_decode_String(arr[2]),
+      sizeBytes: dco_decode_u_64(arr[3]),
+    );
   }
 
   @protected
@@ -847,6 +1445,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   BigInt dco_decode_usize(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dcoDecodeU64(raw);
+  }
+
+  @protected
+  VideoFile dco_decode_video_file(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return VideoFile(
+      path: dco_decode_String(arr[0]),
+      name: dco_decode_String(arr[1]),
+      extension_: dco_decode_String(arr[2]),
+      sizeBytes: dco_decode_u_64(arr[3]),
+    );
   }
 
   @protected
@@ -938,6 +1550,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<MovedEntry> sse_decode_list_moved_entry(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <MovedEntry>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_moved_entry(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<Photo> sse_decode_list_photo(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -954,6 +1578,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  List<VideoFile> sse_decode_list_video_file(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <VideoFile>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_video_file(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  MovedEntry sse_decode_moved_entry(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_name = sse_decode_String(deserializer);
+    var var_path = sse_decode_String(deserializer);
+    var var_original = sse_decode_String(deserializer);
+    var var_sizeBytes = sse_decode_u_64(deserializer);
+    return MovedEntry(
+      name: var_name,
+      path: var_path,
+      original: var_original,
+      sizeBytes: var_sizeBytes,
+    );
   }
 
   @protected
@@ -1028,6 +1679,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   BigInt sse_decode_usize(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getBigUint64();
+  }
+
+  @protected
+  VideoFile sse_decode_video_file(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_path = sse_decode_String(deserializer);
+    var var_name = sse_decode_String(deserializer);
+    var var_extension_ = sse_decode_String(deserializer);
+    var var_sizeBytes = sse_decode_u_64(deserializer);
+    return VideoFile(
+      path: var_path,
+      name: var_name,
+      extension_: var_extension_,
+      sizeBytes: var_sizeBytes,
+    );
   }
 
   @protected
@@ -1115,6 +1781,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_moved_entry(
+    List<MovedEntry> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_moved_entry(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_photo(List<Photo> self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
@@ -1131,6 +1809,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
+  }
+
+  @protected
+  void sse_encode_list_video_file(
+    List<VideoFile> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_video_file(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_moved_entry(MovedEntry self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.name, serializer);
+    sse_encode_String(self.path, serializer);
+    sse_encode_String(self.original, serializer);
+    sse_encode_u_64(self.sizeBytes, serializer);
   }
 
   @protected
@@ -1199,6 +1898,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_video_file(VideoFile self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.path, serializer);
+    sse_encode_String(self.name, serializer);
+    sse_encode_String(self.extension_, serializer);
+    sse_encode_u_64(self.sizeBytes, serializer);
+  }
+
+  @protected
   void sse_encode_i_32(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putInt32(self);
@@ -1233,6 +1941,9 @@ class PhotoStoreImpl extends RustOpaque implements PhotoStore {
     photos: photos,
   );
 
+  Future<void> clearPin() =>
+      RustLib.instance.api.crateApiPhotoStoreClearPin(that: this);
+
   Future<Album> createAlbum({required String name}) => RustLib.instance.api
       .crateApiPhotoStoreCreateAlbum(that: this, name: name);
 
@@ -1241,6 +1952,15 @@ class PhotoStoreImpl extends RustOpaque implements PhotoStore {
 
   Future<void> deletePhoto({required String path}) => RustLib.instance.api
       .crateApiPhotoStoreDeletePhoto(that: this, path: path);
+
+  Future<void> deleteSecureItem({required String name}) => RustLib.instance.api
+      .crateApiPhotoStoreDeleteSecureItem(that: this, name: name);
+
+  Future<void> deleteTrashItem({required String name}) => RustLib.instance.api
+      .crateApiPhotoStoreDeleteTrashItem(that: this, name: name);
+
+  Future<void> emptyTrash() =>
+      RustLib.instance.api.crateApiPhotoStoreEmptyTrash(that: this);
 
   Future<List<String>> favoritePaths() =>
       RustLib.instance.api.crateApiPhotoStoreFavoritePaths(that: this);
@@ -1252,6 +1972,23 @@ class PhotoStoreImpl extends RustOpaque implements PhotoStore {
 
   Future<List<Album>> listAlbums() =>
       RustLib.instance.api.crateApiPhotoStoreListAlbums(that: this);
+
+  Future<List<MovedEntry>> listSecure() =>
+      RustLib.instance.api.crateApiPhotoStoreListSecure(that: this);
+
+  Future<List<MovedEntry>> listTrash() =>
+      RustLib.instance.api.crateApiPhotoStoreListTrash(that: this);
+
+  Future<MovedEntry> moveToSecure({required String path}) => RustLib
+      .instance
+      .api
+      .crateApiPhotoStoreMoveToSecure(that: this, path: path);
+
+  Future<MovedEntry> moveToTrash({required String path}) => RustLib.instance.api
+      .crateApiPhotoStoreMoveToTrash(that: this, path: path);
+
+  Future<bool> pinIsSet() =>
+      RustLib.instance.api.crateApiPhotoStorePinIsSet(that: this);
 
   Future<Album> removePhotosFromAlbum({
     required String albumId,
@@ -1271,10 +2008,19 @@ class PhotoStoreImpl extends RustOpaque implements PhotoStore {
     newName: newName,
   );
 
+  Future<void> restoreSecure({required String name}) => RustLib.instance.api
+      .crateApiPhotoStoreRestoreSecure(that: this, name: name);
+
+  Future<void> restoreTrash({required String name}) => RustLib.instance.api
+      .crateApiPhotoStoreRestoreTrash(that: this, name: name);
+
   Future<List<Photo>> scanDirectory({required String root}) => RustLib
       .instance
       .api
       .crateApiPhotoStoreScanDirectory(that: this, root: root);
+
+  Future<List<VideoFile>> scanVideos({required String root}) =>
+      RustLib.instance.api.crateApiPhotoStoreScanVideos(that: this, root: root);
 
   Future<void> setFavorite({required String path, required bool isFavorite}) =>
       RustLib.instance.api.crateApiPhotoStoreSetFavorite(
@@ -1282,6 +2028,9 @@ class PhotoStoreImpl extends RustOpaque implements PhotoStore {
         path: path,
         isFavorite: isFavorite,
       );
+
+  Future<void> setPin({required String pin}) =>
+      RustLib.instance.api.crateApiPhotoStoreSetPin(that: this, pin: pin);
 
   Future<Uint8List?> thumbnailBytes({
     required String path,
@@ -1291,4 +2040,7 @@ class PhotoStoreImpl extends RustOpaque implements PhotoStore {
     path: path,
     size: size,
   );
+
+  Future<bool> verifyPin({required String pin}) =>
+      RustLib.instance.api.crateApiPhotoStoreVerifyPin(that: this, pin: pin);
 }

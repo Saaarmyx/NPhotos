@@ -7,8 +7,8 @@ import 'frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `cache_key_for`, `clear_thumbnail_file`, `exif_taken_at`, `format_local`, `load`, `read_photo`, `save`, `unix_ms`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `eq`, `fmt`, `fmt`
+// These functions are ignored because they are not marked as `pub`: `cache_key_for`, `clear_thumbnail_file`, `exif_taken_at`, `file_size`, `format_local`, `load`, `move_file`, `read_photo`, `save`, `sha256`, `unique_name`, `unix_ms`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`
 
 String greet({required String name}) =>
     RustLib.instance.api.crateApiGreet(name: name);
@@ -20,11 +20,19 @@ abstract class PhotoStore implements RustOpaqueInterface {
     required List<String> photos,
   });
 
+  Future<void> clearPin();
+
   Future<Album> createAlbum({required String name});
 
   Future<void> deleteAlbum({required String albumId});
 
   Future<void> deletePhoto({required String path});
+
+  Future<void> deleteSecureItem({required String name});
+
+  Future<void> deleteTrashItem({required String name});
+
+  Future<void> emptyTrash();
 
   Future<List<String>> favoritePaths();
 
@@ -32,9 +40,19 @@ abstract class PhotoStore implements RustOpaqueInterface {
 
   Future<List<Album>> listAlbums();
 
+  Future<List<MovedEntry>> listSecure();
+
+  Future<List<MovedEntry>> listTrash();
+
+  Future<MovedEntry> moveToSecure({required String path});
+
+  Future<MovedEntry> moveToTrash({required String path});
+
   // HINT: Make it `#[frb(sync)]` to let it become the default constructor of Dart class.
   static Future<PhotoStore> newInstance({required String configDir}) =>
       RustLib.instance.api.crateApiPhotoStoreNew(configDir: configDir);
+
+  Future<bool> pinIsSet();
 
   Future<Album> removePhotosFromAlbum({
     required String albumId,
@@ -43,11 +61,21 @@ abstract class PhotoStore implements RustOpaqueInterface {
 
   Future<Album> renameAlbum({required String albumId, required String newName});
 
+  Future<void> restoreSecure({required String name});
+
+  Future<void> restoreTrash({required String name});
+
   Future<List<Photo>> scanDirectory({required String root});
+
+  Future<List<VideoFile>> scanVideos({required String root});
 
   Future<void> setFavorite({required String path, required bool isFavorite});
 
+  Future<void> setPin({required String pin});
+
   Future<Uint8List?> thumbnailBytes({required String path, required int size});
+
+  Future<bool> verifyPin({required String pin});
 }
 
 class Album {
@@ -76,6 +104,34 @@ class Album {
           name == other.name &&
           photoPaths == other.photoPaths &&
           createdAt == other.createdAt;
+}
+
+class MovedEntry {
+  final String name;
+  final String path;
+  final String original;
+  final BigInt sizeBytes;
+
+  const MovedEntry({
+    required this.name,
+    required this.path,
+    required this.original,
+    required this.sizeBytes,
+  });
+
+  @override
+  int get hashCode =>
+      name.hashCode ^ path.hashCode ^ original.hashCode ^ sizeBytes.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MovedEntry &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          path == other.path &&
+          original == other.original &&
+          sizeBytes == other.sizeBytes;
 }
 
 class Photo {
@@ -123,4 +179,32 @@ class Photo {
           height == other.height &&
           takenAt == other.takenAt &&
           isFavorite == other.isFavorite;
+}
+
+class VideoFile {
+  final String path;
+  final String name;
+  final String extension_;
+  final BigInt sizeBytes;
+
+  const VideoFile({
+    required this.path,
+    required this.name,
+    required this.extension_,
+    required this.sizeBytes,
+  });
+
+  @override
+  int get hashCode =>
+      path.hashCode ^ name.hashCode ^ extension_.hashCode ^ sizeBytes.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VideoFile &&
+          runtimeType == other.runtimeType &&
+          path == other.path &&
+          name == other.name &&
+          extension_ == other.extension_ &&
+          sizeBytes == other.sizeBytes;
 }

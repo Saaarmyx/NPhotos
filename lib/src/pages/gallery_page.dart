@@ -19,6 +19,8 @@ class _GalleryPageState extends State<GalleryPage>
   SortMode _sort = SortMode.dateDesc;
   String _query = '';
   bool _searching = false;
+  int _columns = 4;
+  PhotoGroupBy _groupBy = PhotoGroupBy.none;
 
   @override
   bool get wantKeepAlive => true;
@@ -140,7 +142,48 @@ class _GalleryPageState extends State<GalleryPage>
                   ),
             actions: [
               IconButton(
-                icon: Icon(_searching ? Icons.close : Icons.search),
+                icon: const Icon(Icons.remove),
+                tooltip: 'Menos columnas',
+                onPressed: _columns > 2
+                    ? () => setState(() => _columns--)
+                    : null,
+              ),
+              Text('$_columns', style: Theme.of(context).textTheme.labelLarge),
+              IconButton(
+                icon: const Icon(Icons.add),
+                tooltip: 'Más columnas',
+                onPressed: _columns < 8
+                    ? () => setState(() => _columns++)
+                    : null,
+              ),
+              const SizedBox(width: 4),
+              PopupMenuButton<PhotoGroupBy>(
+                icon: Icon(
+                  switch (_groupBy) {
+                    PhotoGroupBy.none => Icons.view_agenda_outlined,
+                    PhotoGroupBy.year => Icons.calendar_today,
+                    PhotoGroupBy.month => Icons.calendar_view_month,
+                  },
+                ),
+                tooltip: 'Agrupar por',
+                onSelected: (mode) => setState(() => _groupBy = mode),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: PhotoGroupBy.none,
+                    child: Text('Sin agrupar'),
+                  ),
+                  PopupMenuItem(
+                    value: PhotoGroupBy.year,
+                    child: Text('Por año'),
+                  ),
+                  PopupMenuItem(
+                    value: PhotoGroupBy.month,
+                    child: Text('Por mes'),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: _searching ? const Icon(Icons.close) : const Icon(Icons.search),
                 tooltip: 'Buscar',
                 onPressed: () => setState(() {
                   _searching = !_searching;
@@ -223,6 +266,8 @@ class _GalleryPageState extends State<GalleryPage>
             }
             return ThumbnailGrid(
               photos: visible,
+              columns: _columns,
+              groupBy: _groupBy,
               onChanged: () {
                 if (mounted) setState(() {});
               },

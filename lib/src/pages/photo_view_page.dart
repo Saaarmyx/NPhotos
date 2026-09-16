@@ -98,32 +98,30 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
 
   void _rotate() => setState(() => _rotation = (_rotation + 90) % 360);
 
-  Future<void> _delete() async {
+  Future<void> _moveToTrash() async {
     final controller = await StoreController.instance();
     if (!mounted) return;
     final path = _photo.path;
+    final photo = _photo;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Eliminar foto'),
-        content: Text('¿Borrar "${_photo.name}" definitivamente?'),
+        title: const Text('Mover a papelera'),
+        content: Text('¿Mover "${_photo.name}" a la papelera?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Eliminar'),
+            child: const Text('Mover'),
           ),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
-    await controller.deletePhoto(path);
+    await controller.moveToTrash(photo);
     if (!mounted) return;
 
     final removedIndex = widget.photos.indexWhere((p) => p.path == path);
@@ -138,7 +136,32 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
     widget.onChanged?.call();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Foto eliminada')),
+        const SnackBar(content: Text('Movida a la papelera')),
+      );
+    }
+  }
+
+  Future<void> _moveToSecure() async {
+    final controller = await StoreController.instance();
+    if (!mounted) return;
+    final path = _photo.path;
+    final photo = _photo;
+    await controller.moveToSecure(photo);
+    if (!mounted) return;
+
+    final removedIndex = widget.photos.indexWhere((p) => p.path == path);
+    if (removedIndex != -1) widget.photos.removeAt(removedIndex);
+    if (widget.photos.isEmpty) {
+      Navigator.of(context).pop();
+    } else {
+      final newIndex = removedIndex.clamp(0, widget.photos.length - 1);
+      setState(() => _index = newIndex);
+      _controller.jumpToPage(newIndex);
+    }
+    widget.onChanged?.call();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Movida a carpeta segura')),
       );
     }
   }
@@ -168,8 +191,10 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
                   _addToAlbum();
                 case 'rotate':
                   _rotate();
-                case 'delete':
-                  _delete();
+                case 'secure':
+                  _moveToSecure();
+                case 'trash':
+                  _moveToTrash();
               }
             },
             itemBuilder: (_) => const [
@@ -190,10 +215,18 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
                 ),
               ),
               PopupMenuItem(
-                value: 'delete',
+                value: 'secure',
+                child: ListTile(
+                  leading: Icon(Icons.lock_outline),
+                  title: Text('Mover a carpeta segura'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: 'trash',
                 child: ListTile(
                   leading: Icon(Icons.delete_outline),
-                  title: Text('Eliminar'),
+                  title: Text('Mover a papelera'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -220,7 +253,7 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
       bottomNavigationBar: _MetadataBar(
         photo: photo,
         onRotate: _rotate,
-        onDelete: _delete,
+        onTrash: _moveToTrash,
       ),
     );
   }
@@ -252,12 +285,12 @@ class _MetadataBar extends StatelessWidget {
   const _MetadataBar({
     required this.photo,
     required this.onRotate,
-    required this.onDelete,
+    required this.onTrash,
   });
 
   final Photo photo;
   final VoidCallback onRotate;
-  final VoidCallback onDelete;
+  final VoidCallback onTrash;
 
   @override
   Widget build(BuildContext context) {
@@ -288,8 +321,8 @@ class _MetadataBar extends StatelessWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline, color: Colors.white70),
-                tooltip: 'Eliminar',
-                onPressed: onDelete,
+                tooltip: 'Mover a papelera',
+                onPressed: onTrash,
               ),
             ],
           ),

@@ -17,6 +17,8 @@ const IMAGE_EXTENSIONS: &[&str] = &[
     "jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "tif", "heic", "heif", "avif",
 ];
 
+const VIDEO_EXTENSIONS: &[&str] = &["mp4", "mov", "mkv", "webm", "avi", "m4v", "3gp"];
+
 const STATE_FILE: &str = "nexora_core.json";
 
 #[derive(Debug, Clone, Serialize)]
@@ -39,7 +41,23 @@ pub struct Album {
     pub created_at: String,
 }
 
-use crate::store::StoreData;
+#[derive(Debug, Clone, Serialize)]
+pub struct VideoFile {
+    pub path: String,
+    pub name: String,
+    pub extension: String,
+    pub size_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MovedEntry {
+    pub name: String,
+    pub path: String,
+    pub original: String,
+    pub size_bytes: u64,
+}
+
+use crate::store::{MovedItem, StoreData};
 
 #[flutter_rust_bridge::frb(opaque)]
 pub struct PhotoStore {
@@ -115,6 +133,8 @@ fn unix_ms() -> String {
 }
 
 const THUMBS_DIR: &str = "thumbs";
+const TRASH_DIR: &str = "trash";
+const SECURE_DIR: &str = "secure";
 
 fn cache_key_for(path: &str, modified_secs: u64, size: u64) -> String {
     let mut hasher = DefaultHasher::new();
@@ -381,6 +401,271 @@ impl PhotoStore {
         drop(lock);
         self.save()
     }
+
+    pub fn move_to_trash(&self, path: String) -> Result<MovedEntry, String> {
+        let items = self
+            .data
+            .lock()
+            .map_err(|e| e.to_string())?
+            .trash_items
+            .clone();
+        let src = Path::new(&path);
+        if !src.is_file() {
+            return Err(format!("Not a file: {path}"));
+        }
+        let name = unique_name(src, &items);
+        let moved = move_file(&self.config_dir, TRASH_DIR, src, &name)?;
+
+        let mut lock = self.data.lock().map_err(|e| e.to_string())?;
+        lock.favorite_paths.retain(|p| p != &path);
+        for album in &mut lock.albums {
+            album.photo_paths.retain(|p| p != &path);
+        }
+        lock.trash_items.push(MovedItem {
+            name: name.clone(),
+            original: path,
+        });
+        drop(lock);
+        self.save()?;
+        Ok(moved)
+    }
+
+    pub fn list_trash(&self) -> Result<Vec<MovedEntry>, String> {
+        let lock = self.data.lock().map_err(|e| e.to_string())?;
+        let trash_dir = Path::new(&self.config_dir).join(TRASH_DIR);
+        Ok(lock
+            .trash_items
+            .iter()
+            .map(|item| MovedEntry {
+                name: item.name.clone(),
+                path: trash_dir.join(&item.name).to_string_lossy().to_string(),
+                original: item.original.clone(),
+                size_bytes: file_size(&trash_dir.join(&item.name)),
+            })
+            .collect())
+    }
+
+    pub fn restore_trash(&self, name: String) -> Result<(), String> {
+        let mut lock = self.data.lock().map_err(|e| e.to_string())?;
+        let item = lock
+            .trash_items
+            .iter()
+            .find(|i| i.name == name)
+            .cloned()
+            .ok_or_else(|| format!("Not in trash: {name}"))?;
+
+        let src = Path::new(&self.config_dir).join(TRASH_DIR).join(&name);
+        let dest = Path::new(&item.original);
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        std::fs::rename(src, dest).map_err(|e| e.to_string())?;
+        lock.trash_items.retain(|i| i.name != name);
+        drop(lock);
+        self.save()
+    }
+
+    pub fn delete_trash_item(&self, name: String) -> Result<(), String> {
+        let mut lock = self.data.lock().map_err(|e| e.to_string())?;
+        std::fs::remove_file(Path::new(&self.config_dir).join(TRASH_DIR).join(&name))
+            .map_err(|e| e.to_string())?;
+        lock.trash_items.retain(|i| i.name != name);
+        drop(lock);
+        self.save()
+    }
+
+    pub fn empty_trash(&self) -> Result<(), String> {
+        let mut lock = self.data.lock().map_err(|e| e.to_string())?;
+        for item in &lock.trash_items {
+            let _ =
+                std::fs::remove_file(Path::new(&self.config_dir).join(TRASH_DIR).join(&item.name));
+        }
+        lock.trash_items.clear();
+        drop(lock);
+        self.save()
+    }
+
+    pub fn scan_videos(&self, root: String) -> Result<Vec<VideoFile>, String> {
+        let base = PathBuf::from(&root);
+        if !base.is_dir() {
+            return Err(format!("Not a directory: {root}"));
+        }
+        let mut videos = Vec::new();
+        for entry in WalkDir::new(&base).into_iter().filter_map(|e| e.ok()) {
+            if !entry.file_type().is_file() {
+                continue;
+            }
+            let path = entry.path();
+            let ext = path
+                .extension()
+                .map(|e| e.to_string_lossy().to_lowercase())
+                .unwrap_or_default();
+            if !VIDEO_EXTENSIONS.contains(&ext.as_str()) {
+                continue;
+            }
+            let name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let size_bytes = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+            videos.push(VideoFile {
+                path: path.to_string_lossy().to_string(),
+                name,
+                extension: ext,
+                size_bytes,
+            });
+        }
+        videos.sort_by_key(|a| std::cmp::Reverse(a.name.to_lowercase()));
+        Ok(videos)
+    }
+
+    pub fn move_to_secure(&self, path: String) -> Result<MovedEntry, String> {
+        let items = self
+            .data
+            .lock()
+            .map_err(|e| e.to_string())?
+            .secure_items
+            .clone();
+        let src = Path::new(&path);
+        if !src.is_file() {
+            return Err(format!("Not a file: {path}"));
+        }
+        let name = unique_name(src, &items);
+        let moved = move_file(&self.config_dir, SECURE_DIR, src, &name)?;
+
+        let mut lock = self.data.lock().map_err(|e| e.to_string())?;
+        lock.favorite_paths.retain(|p| p != &path);
+        for album in &mut lock.albums {
+            album.photo_paths.retain(|p| p != &path);
+        }
+        lock.secure_items.push(MovedItem {
+            name: name.clone(),
+            original: path,
+        });
+        drop(lock);
+        self.save()?;
+        Ok(moved)
+    }
+
+    pub fn list_secure(&self) -> Result<Vec<MovedEntry>, String> {
+        let lock = self.data.lock().map_err(|e| e.to_string())?;
+        let secure_dir = Path::new(&self.config_dir).join(SECURE_DIR);
+        Ok(lock
+            .secure_items
+            .iter()
+            .map(|item| MovedEntry {
+                name: item.name.clone(),
+                path: secure_dir.join(&item.name).to_string_lossy().to_string(),
+                original: item.original.clone(),
+                size_bytes: file_size(&secure_dir.join(&item.name)),
+            })
+            .collect())
+    }
+
+    pub fn restore_secure(&self, name: String) -> Result<(), String> {
+        let mut lock = self.data.lock().map_err(|e| e.to_string())?;
+        let item = lock
+            .secure_items
+            .iter()
+            .find(|i| i.name == name)
+            .cloned()
+            .ok_or_else(|| format!("Not in secure folder: {name}"))?;
+        let src = Path::new(&self.config_dir).join(SECURE_DIR).join(&name);
+        let dest = Path::new(&item.original);
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        std::fs::rename(src, dest).map_err(|e| e.to_string())?;
+        lock.secure_items.retain(|i| i.name != name);
+        drop(lock);
+        self.save()
+    }
+
+    pub fn delete_secure_item(&self, name: String) -> Result<(), String> {
+        let mut lock = self.data.lock().map_err(|e| e.to_string())?;
+        std::fs::remove_file(Path::new(&self.config_dir).join(SECURE_DIR).join(&name))
+            .map_err(|e| e.to_string())?;
+        lock.secure_items.retain(|i| i.name != name);
+        drop(lock);
+        self.save()
+    }
+
+    pub fn set_pin(&self, pin: String) -> Result<(), String> {
+        if pin.is_empty() {
+            return Err("PIN vacío".to_string());
+        }
+        let hash = sha256(&pin);
+        let mut lock = self.data.lock().map_err(|e| e.to_string())?;
+        lock.secure_pin_hash = Some(hash);
+        drop(lock);
+        self.save()
+    }
+
+    pub fn clear_pin(&self) -> Result<(), String> {
+        let mut lock = self.data.lock().map_err(|e| e.to_string())?;
+        lock.secure_pin_hash = None;
+        drop(lock);
+        self.save()
+    }
+
+    pub fn pin_is_set(&self) -> Result<bool, String> {
+        Ok(self
+            .data
+            .lock()
+            .map_err(|e| e.to_string())?
+            .secure_pin_hash
+            .is_some())
+    }
+
+    pub fn verify_pin(&self, pin: String) -> Result<bool, String> {
+        let lock = self.data.lock().map_err(|e| e.to_string())?;
+        Ok(lock
+            .secure_pin_hash
+            .as_ref()
+            .map(|h| h == &sha256(&pin))
+            .unwrap_or(false))
+    }
+}
+
+fn file_size(path: &Path) -> u64 {
+    std::fs::metadata(path).map(|m| m.len()).unwrap_or(0)
+}
+
+fn unique_name(src: &Path, existing: &[MovedItem]) -> String {
+    let base = src
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let name = base.clone();
+    if existing.iter().all(|i| i.name != name) {
+        return name;
+    }
+    format!("{}_{}", unix_ms(), base)
+}
+
+fn move_file(
+    config_dir: &str,
+    dir_name: &str,
+    src: &Path,
+    name: &str,
+) -> Result<MovedEntry, String> {
+    let dest_dir = Path::new(config_dir).join(dir_name);
+    std::fs::create_dir_all(&dest_dir).map_err(|e| e.to_string())?;
+    let dest = dest_dir.join(name);
+    std::fs::rename(src, &dest).map_err(|e| e.to_string())?;
+    Ok(MovedEntry {
+        name: name.to_string(),
+        path: dest.to_string_lossy().to_string(),
+        original: src.to_string_lossy().to_string(),
+        size_bytes: file_size(&dest),
+    })
+}
+
+fn sha256(input: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(input.as_bytes());
+    format!("{:x}", hasher.finalize())
 }
 
 #[flutter_rust_bridge::frb(sync)]
@@ -520,5 +805,80 @@ mod tests {
         assert!(store.favorite_paths().unwrap().is_empty());
         let albums = store.list_albums().unwrap();
         assert!(albums[0].photo_paths.is_empty());
+    }
+
+    #[test]
+    fn trash_roundtrip() {
+        let root = tmp_dir("trash");
+        let config = tmp_dir("trash_cfg");
+        let png_path = std::path::Path::new(&root).join("a.png");
+        std::fs::write(&png_path, TINY_PNG).unwrap();
+        let store = PhotoStore::new(config).unwrap();
+
+        let p = png_path.to_string_lossy().to_string();
+        store.move_to_trash(p.clone()).unwrap();
+        assert!(!png_path.exists());
+        let trash = store.list_trash().unwrap();
+        assert_eq!(trash.len(), 1);
+
+        store.restore_trash(trash[0].name.clone()).unwrap();
+        assert!(png_path.exists());
+        assert!(store.list_trash().unwrap().is_empty());
+
+        // eliminar definitivo
+        store.move_to_trash(p).unwrap();
+        let trash = store.list_trash().unwrap();
+        store.delete_trash_item(trash[0].name.clone()).unwrap();
+        assert!(store.list_trash().unwrap().is_empty());
+    }
+
+    #[test]
+    fn trash_moves_privates_out_of_favorites_and_albums() {
+        let root = tmp_dir("trash2");
+        let config = tmp_dir("trash2_cfg");
+        let png_path = std::path::Path::new(&root).join("b.png");
+        std::fs::write(&png_path, TINY_PNG).unwrap();
+        let store = PhotoStore::new(config).unwrap();
+
+        let p = png_path.to_string_lossy().to_string();
+        store.set_favorite(p.clone(), true).unwrap();
+        let album = store.create_album("A".into()).unwrap();
+        store
+            .add_photos_to_album(album.id, vec![p.clone()])
+            .unwrap();
+        store.move_to_trash(p.clone()).unwrap();
+
+        assert!(store.favorite_paths().unwrap().is_empty());
+        assert!(store.list_albums().unwrap()[0].photo_paths.is_empty());
+    }
+
+    #[test]
+    fn secure_folder_and_pin() {
+        let root = tmp_dir("sec");
+        let config = tmp_dir("sec_cfg");
+        let png_path = std::path::Path::new(&root).join("c.png");
+        std::fs::write(&png_path, TINY_PNG).unwrap();
+        let store = PhotoStore::new(config.clone()).unwrap();
+
+        assert!(!store.pin_is_set().unwrap());
+        store.set_pin("1234".into()).unwrap();
+        assert!(store.pin_is_set().unwrap());
+        assert!(store.verify_pin("1234".into()).unwrap());
+        assert!(!store.verify_pin("0000".into()).unwrap());
+
+        let p = png_path.to_string_lossy().to_string();
+        store.move_to_secure(p.clone()).unwrap();
+        assert!(!png_path.exists());
+        let sec = store.list_secure().unwrap();
+        assert_eq!(sec.len(), 1);
+        store.restore_secure(sec[0].name.clone()).unwrap();
+        assert!(png_path.exists());
+
+        store.move_to_secure(p.clone()).unwrap();
+        let sec = store.list_secure().unwrap();
+        store.delete_secure_item(sec[0].name.clone()).unwrap();
+        assert!(store.list_secure().unwrap().is_empty());
+        store.clear_pin().unwrap();
+        assert!(!store.pin_is_set().unwrap());
     }
 }

@@ -1,21 +1,28 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../core.dart';
 import '../pages/photo_view_page.dart';
 import '../rust/api.dart';
 
+enum PhotoGroupBy { none, year, month }
+
 class ThumbnailGrid extends StatelessWidget {
   const ThumbnailGrid({
     super.key,
     required this.photos,
+    this.columns = 4,
+    this.groupBy = PhotoGroupBy.none,
     this.onChanged,
     this.showFavoriteBadge = true,
     this.onRemoveRequest,
   });
 
   final List<Photo> photos;
+  final int columns;
+  final PhotoGroupBy groupBy;
   final VoidCallback? onChanged;
   final bool showFavoriteBadge;
   final Future<void> Function(Photo photo)? onRemoveRequest;
@@ -25,59 +32,132 @@ class ThumbnailGrid extends StatelessWidget {
     if (photos.isEmpty) {
       return const Center(child: Text('No hay fotos aún'));
     }
-    return GridView.builder(
+    if (groupBy == PhotoGroupBy.none) {
+      return _buildGrid(context, photos);
+    }
+    return _buildGrouped();
+  }
+
+  Map<String, List<Photo>> _groups() {
+    final map = <String, List<Photo>>{};
+    for (final photo in photos) {
+      final key = switch (groupBy) {
+        PhotoGroupBy.year => DateTime.tryParse(photo.takenAt ?? '')?.year.toString(),
+        PhotoGroupBy.month => DateTime.tryParse(photo.takenAt ?? '')
+            ?.toIso8601String()
+            .substring(0, 7),
+        PhotoGroupBy.none => null,
+      } ?? 'sin_fecha';
+      map.putIfAbsent(key, () => []).add(photo);
+    }
+    // orden descendente (más reciente primero); 'sin_fecha' al final
+    final sorted = map.keys
+        .where((k) => k != 'sin_fecha')
+        .toList()
+      ..sort((a, b) => b.compareTo(a));
+    if (map.containsKey('sin_fecha')) sorted.add('sin_fecha');
+    return {for (final k in sorted) k: map[k]!};
+  }
+
+  Widget _buildGrouped() {
+    final groups = _groups();
+    final keys = groups.keys.toList();
+    return ListView.builder(
       padding: const EdgeInsets.all(4),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-      ),
-      itemCount: photos.length,
-      itemBuilder: (context, index) {
-        final photo = photos[index];
-        return GestureDetector(
-          onTap: () async {
-            await Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => PhotoViewPage(
-                  photos: photos,
-                  initialIndex: index,
-                  onChanged: onChanged,
-                ),
+      itemCount: keys.length,
+      itemBuilder: (context, i) {
+        final key = keys[i];
+        final groupPhotos = groups[key]!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 10, 4, 6),
+              child: Text(
+                key == 'sin_fecha'
+                    ? 'Sin fecha'
+                    : (groupBy == PhotoGroupBy.year
+                        ? key
+                        : DateFormat('MMMM yyyy').format(
+                            DateTime.tryParse('$key-02')!,
+                          )),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
-            );
-          },
-          onLongPress: () => _showMenu(context, photo),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: _Thumb(photo: photo),
-              ),
-              if (showFavoriteBadge && photo.isFavorite)
-                const Positioned(
-                  top: 4,
-                  right: 4,
-                  child: Icon(Icons.favorite, color: Colors.red, size: 18),
-                ),
-              Positioned(
-                left: 4,
-                bottom: 4,
-                child: GestureDetector(
-                  onTap: () => _toggleFavorite(photo),
-                  child: Icon(
-                    photo.isFavorite ? Icons.favorite : Icons.favorite_border,
-                    color: photo.isFavorite ? Colors.red : Colors.white,
-                    shadows: const [Shadow(blurRadius: 4, color: Colors.black45)],
-                    size: 20,
-                  ),
-                ),
-              ),
-            ],
+            ),
+            _buildGrid(context, groupPhotos),
+            if (i == keys.length - 1) const SizedBox(height: 8),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _tile(BuildContext context, Photo photo, int tilePx) {
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => PhotoViewPage(
+              photos: photos,
+              initialIndex: photos.indexOf(photo),
+              onChanged: onChanged,
+            ),
           ),
         );
       },
+      onLongPress: () => _showMenu(context, photo),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: _Thumb(photo: photo),
+          ),
+          if (showFavoriteBadge && photo.isFavorite)
+            const Positioned(
+              top: 4,
+              right: 4,
+              child: Icon(Icons.favorite, color: Colors.red, size: 18),
+            ),
+          Positioned(
+            left: 4,
+            bottom: 4,
+            child: GestureDetector(
+              onTap: () => _toggleFavorite(photo),
+              child: Icon(
+                photo.isFavorite ? Icons.favorite : Icons.favorite_border,
+                color: photo.isFavorite ? Colors.red : Colors.white,
+                shadows: const [Shadow(blurRadius: 4, color: Colors.black45)],
+                size: 20,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGrid(BuildContext context, List<Photo> gridPhotos) {
+    final width = MediaQuery.sizeOf(context).width;
+    final spacing = 8.0;
+    final tileLogical = (width - 8.0 - spacing * (columns - 1)) / columns - 4;
+    final tilePx =
+        (tileLogical * MediaQuery.devicePixelRatioOf(context)).round().clamp(96, 900);
+    return GridView.builder(
+      shrinkWrap: groupBy != PhotoGroupBy.none,
+      physics: groupBy != PhotoGroupBy.none
+          ? const NeverScrollableScrollPhysics()
+          : null,
+      padding: const EdgeInsets.all(4),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns,
+        crossAxisSpacing: spacing,
+        mainAxisSpacing: spacing,
+      ),
+      itemCount: gridPhotos.length,
+      itemBuilder: (context, index) => _tile(context, gridPhotos[index], tilePx),
     );
   }
 
@@ -93,6 +173,7 @@ class ThumbnailGrid extends StatelessWidget {
     final options = <String, String>{
       'fav': photo.isFavorite ? 'Quitar de favoritos' : 'Marcar como favorita',
       'album': 'Añadir a álbum',
+      'secure': 'Mover a carpeta segura',
     };
     if (onRemoveRequest != null) {
       options['remove'] = 'Quitar del álbum';
@@ -105,11 +186,12 @@ class ThumbnailGrid extends StatelessWidget {
             for (final e in options.entries)
               ListTile(
                 leading: Icon(
-                  e.key == 'fav'
-                      ? Icons.favorite
-                      : e.key == 'album'
-                          ? Icons.photo_library
-                          : Icons.delete_outline,
+                  switch (e.key) {
+                    'fav' => Icons.favorite,
+                    'album' => Icons.photo_library,
+                    'secure' => Icons.lock_outline,
+                    _ => Icons.delete_outline,
+                  },
                 ),
                 title: Text(e.value),
                 onTap: () => Navigator.pop(context, e.key),
@@ -124,6 +206,9 @@ class ThumbnailGrid extends StatelessWidget {
       onChanged?.call();
     } else if (action == 'album') {
       await _addToAlbum(context, controller, photo);
+    } else if (action == 'secure') {
+      await controller.moveToSecure(photo);
+      onChanged?.call();
     } else if (action == 'remove') {
       await onRemoveRequest?.call(photo);
       onChanged?.call();

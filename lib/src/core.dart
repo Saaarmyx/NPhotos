@@ -1,8 +1,12 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'rust/api.dart';
 import 'rust/frb_generated.dart';
+
+/// Modo de tema de la app (claro/oscuro/sistema), compartido entre páginas.
+final ValueNotifier<ThemeMode> appThemeMode = ValueNotifier(ThemeMode.system);
 
 class StoreController extends ChangeNotifier {
   StoreController._(this.store);
@@ -56,6 +60,13 @@ class StoreController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reescanea la carpeta activa si [path] está dentro de ella.
+  Future<void> rescanIfInRange(String? path) async {
+    final root = rootPath;
+    if (root == null || path == null || !path.startsWith(root)) return;
+    await scan(root);
+  }
+
   Future<void> toggleFavorite(Photo photo) async {
     await store.setFavorite(path: photo.path, isFavorite: !photo.isFavorite);
     final i = photos.indexWhere((p) => p.path == photo.path);
@@ -96,6 +107,47 @@ class StoreController extends ChangeNotifier {
     await refreshFavorites();
     await refreshAlbums();
   }
+
+  Future<void> moveToTrash(Photo photo) async {
+    _thumbCache.remove(photo.path);
+    final i = photos.indexWhere((p) => p.path == photo.path);
+    if (i != -1) photos.removeAt(i);
+    await store.moveToTrash(path: photo.path);
+    await refreshFavorites();
+    await refreshAlbums();
+  }
+
+  Future<MovedEntry> _moveToSecurePath(String path) =>
+      store.moveToSecure(path: path);
+
+  Future<void> moveToSecure(Photo photo) async {
+    _thumbCache.remove(photo.path);
+    final i = photos.indexWhere((p) => p.path == photo.path);
+    if (i != -1) photos.removeAt(i);
+    await _moveToSecurePath(photo.path);
+    await refreshFavorites();
+    await refreshAlbums();
+  }
+
+  Future<List<MovedEntry>> listTrash() => store.listTrash();
+  Future<void> restoreTrash(MovedEntry entry) =>
+      store.restoreTrash(name: entry.name);
+  Future<void> deleteTrashItem(MovedEntry entry) =>
+      store.deleteTrashItem(name: entry.name);
+  Future<void> emptyTrash() => store.emptyTrash();
+
+  Future<List<MovedEntry>> listSecure() => store.listSecure();
+  Future<void> restoreSecure(MovedEntry entry) =>
+      store.restoreSecure(name: entry.name);
+  Future<void> deleteSecureItem(MovedEntry entry) =>
+      store.deleteSecureItem(name: entry.name);
+
+  Future<void> setPin(String pin) => store.setPin(pin: pin);
+  Future<void> clearPin() => store.clearPin();
+  Future<bool> pinIsSet() => store.pinIsSet();
+  Future<bool> verifyPin(String pin) => store.verifyPin(pin: pin);
+
+  Future<List<VideoFile>> scanVideos(String root) => store.scanVideos(root: root);
 
   Future<Album> createAlbum(String name) async {
     final album = await store.createAlbum(name: name);

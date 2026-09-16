@@ -61,10 +61,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Album> dco_decode_list_album(dynamic raw);
 
   @protected
+  List<MovedEntry> dco_decode_list_moved_entry(dynamic raw);
+
+  @protected
   List<Photo> dco_decode_list_photo(dynamic raw);
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  List<VideoFile> dco_decode_list_video_file(dynamic raw);
+
+  @protected
+  MovedEntry dco_decode_moved_entry(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
@@ -89,6 +98,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt dco_decode_usize(dynamic raw);
+
+  @protected
+  VideoFile dco_decode_video_file(dynamic raw);
 
   @protected
   PhotoStore
@@ -124,10 +136,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Album> sse_decode_list_album(SseDeserializer deserializer);
 
   @protected
+  List<MovedEntry> sse_decode_list_moved_entry(SseDeserializer deserializer);
+
+  @protected
   List<Photo> sse_decode_list_photo(SseDeserializer deserializer);
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  List<VideoFile> sse_decode_list_video_file(SseDeserializer deserializer);
+
+  @protected
+  MovedEntry sse_decode_moved_entry(SseDeserializer deserializer);
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
@@ -152,6 +173,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt sse_decode_usize(SseDeserializer deserializer);
+
+  @protected
+  VideoFile sse_decode_video_file(SseDeserializer deserializer);
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
@@ -193,6 +217,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_album(List<Album> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_moved_entry(
+    List<MovedEntry> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_photo(List<Photo> self, SseSerializer serializer);
 
   @protected
@@ -200,6 +230,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     Uint8List self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_list_video_file(
+    List<VideoFile> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_moved_entry(MovedEntry self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
@@ -227,6 +266,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_video_file(VideoFile self, SseSerializer serializer);
 
   @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
