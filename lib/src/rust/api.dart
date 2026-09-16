@@ -7,7 +7,7 @@ import 'frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `cache_key_for`, `clear_thumbnail_file`, `collect_photos`, `collect_videos`, `exif_taken_at`, `file_size`, `format_local`, `home_dir`, `is_noise_dir`, `load`, `move_file`, `read_photo`, `save`, `sha256`, `unique_name`, `unix_ms`
+// These functions are ignored because they are not marked as `pub`: `cache_key_for`, `clear_thumbnail_file`, `collect_photos`, `collect_videos`, `exif_taken_at`, `file_size`, `format_local`, `home_dir`, `is_noise_dir`, `load`, `move_file`, `read_photo`, `save`, `sha256`, `sort_chrono`, `unique_name`, `unix_ms`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`
 
 String greet({required String name}) =>

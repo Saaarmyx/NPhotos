@@ -4,8 +4,6 @@ import '../core.dart';
 import '../rust/api.dart';
 import '../widgets/photo_grid.dart';
 
-enum SortMode { dateDesc, dateAsc, nameAsc, sizeDesc }
-
 class GalleryPage extends StatefulWidget {
   const GalleryPage({super.key});
 
@@ -15,7 +13,6 @@ class GalleryPage extends StatefulWidget {
 
 class _GalleryPageState extends State<GalleryPage>
     with AutomaticKeepAliveClientMixin {
-  SortMode _sort = SortMode.dateDesc;
   String _query = '';
   bool _searching = false;
   int _columns = 4;
@@ -42,35 +39,6 @@ class _GalleryPageState extends State<GalleryPage>
     final controller = await StoreController.instance();
     await controller.scanAll();
     if (mounted) setState(() {});
-  }
-
-  List<Photo> _sorted(List<Photo> photos) {
-    final list = List<Photo>.from(photos);
-    switch (_sort) {
-      case SortMode.dateDesc:
-        list.sort((a, b) {
-          final ta = DateTime.tryParse(a.takenAt ?? '');
-          final tb = DateTime.tryParse(b.takenAt ?? '');
-          if (ta == null && tb == null) return 0;
-          if (ta == null) return 1;
-          if (tb == null) return -1;
-          return tb.compareTo(ta);
-        });
-      case SortMode.dateAsc:
-        list.sort((a, b) {
-          final ta = DateTime.tryParse(a.takenAt ?? '');
-          final tb = DateTime.tryParse(b.takenAt ?? '');
-          if (ta == null && tb == null) return 0;
-          if (ta == null) return 1;
-          if (tb == null) return -1;
-          return ta.compareTo(tb);
-        });
-      case SortMode.nameAsc:
-        list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-      case SortMode.sizeDesc:
-        list.sort((a, b) => b.sizeBytes.compareTo(a.sizeBytes));
-    }
-    return list;
   }
 
   List<Photo> _filter(List<Photo> photos) {
@@ -155,29 +123,6 @@ class _GalleryPageState extends State<GalleryPage>
                   if (!_searching) _query = '';
                 }),
               ),
-              PopupMenuButton<SortMode>(
-                icon: const Icon(Icons.sort),
-                tooltip: 'Ordenar',
-                onSelected: (mode) => setState(() => _sort = mode),
-                itemBuilder: (_) => const [
-                  PopupMenuItem(
-                    value: SortMode.dateDesc,
-                    child: Text('Fecha · la más reciente'),
-                  ),
-                  PopupMenuItem(
-                    value: SortMode.dateAsc,
-                    child: Text('Fecha · la más antigua'),
-                  ),
-                  PopupMenuItem(
-                    value: SortMode.nameAsc,
-                    child: Text('Nombre (A-Z)'),
-                  ),
-                  PopupMenuItem(
-                    value: SortMode.sizeDesc,
-                    child: Text('Tamaño · el mayor primero'),
-                  ),
-                ],
-              ),
               IconButton(
                 icon: const Icon(Icons.refresh),
                 tooltip: 'Actualizar',
@@ -223,7 +168,7 @@ class _GalleryPageState extends State<GalleryPage>
                 ),
               );
             }
-            final visible = _filter(_sorted(controller.photos));
+            final visible = _filter(controller.photos);
             if (visible.isEmpty && _query.isNotEmpty) {
               return const Center(child: Text('Sin resultados para la búsqueda'));
             }

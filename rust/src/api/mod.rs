@@ -97,6 +97,15 @@ pub struct PhotoStore {
     config_dir: String,
 }
 
+/// Orden cronológico: recientes primero, desempate estable por nombre.
+fn sort_chrono(photos: &mut [Photo]) {
+    photos.sort_by(|a, b| {
+        b.taken_at
+            .cmp(&a.taken_at)
+            .then_with(|| b.name.cmp(&a.name))
+    });
+}
+
 fn read_photo(path: &Path, is_favorite: bool) -> Photo {
     let meta = std::fs::metadata(path);
     let (size_bytes, modified) = match meta {
@@ -272,7 +281,7 @@ impl PhotoStore {
             );
             photos.push(photo);
         }
-        photos.sort_by(|a, b| b.taken_at.cmp(&a.taken_at));
+        sort_chrono(&mut photos);
         Ok(photos)
     }
 
@@ -286,10 +295,12 @@ impl PhotoStore {
             .cloned()
             .collect();
 
-        Ok(paths
+        let mut photos: Vec<Photo> = paths
             .into_iter()
             .map(|p| read_photo(Path::new(&p), favorites.contains(&p)))
-            .collect())
+            .collect();
+        sort_chrono(&mut photos);
+        Ok(photos)
     }
 
     pub fn set_favorite(&self, path: String, is_favorite: bool) -> Result<(), String> {
@@ -917,6 +928,34 @@ mod tests {
         // sin skip se encuentran las tres
         let all = store.collect_photos(tmp, false).unwrap();
         assert_eq!(all.len(), 3);
+    }
+
+    #[test]
+    fn scan_orders_recent_first() {
+        use std::time::{Duration, SystemTime};
+
+        let root = tmp_dir("ord");
+        let config = tmp_dir("ord_cfg");
+        let store = PhotoStore::new(config).unwrap();
+
+        let tmp = std::path::Path::new(&root);
+        let old_path = tmp.join("old.png");
+        let new_path = tmp.join("new.png");
+        std::fs::write(&old_path, TINY_PNG).unwrap();
+        std::fs::write(&new_path, TINY_PNG).unwrap();
+
+        let epoch = SystemTime::UNIX_EPOCH + Duration::from_secs(0);
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .open(&old_path)
+            .unwrap();
+        file.set_modified(epoch).unwrap();
+        drop(file);
+
+        let photos = store.collect_photos(tmp, false).unwrap();
+        assert_eq!(photos.len(), 2);
+        assert_eq!(photos[0].name, "new.png");
+        assert_eq!(photos[1].name, "old.png");
     }
 
     #[test]
