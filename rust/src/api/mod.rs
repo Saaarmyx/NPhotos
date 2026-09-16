@@ -67,9 +67,7 @@ fn read_photo(path: &Path, is_favorite: bool) -> Photo {
         .map(|s| (s.width as u32, s.height as u32))
         .unwrap_or((0, 0));
 
-    let taken_at = exif_taken_at(path).or_else(|| {
-        modified.map(|t| format_local(t))
-    });
+    let taken_at = exif_taken_at(path).or_else(|| modified.map(format_local));
 
     Photo {
         path: path.to_string_lossy().to_string(),
@@ -86,7 +84,9 @@ fn read_photo(path: &Path, is_favorite: bool) -> Photo {
 fn exif_taken_at(path: &Path) -> Option<String> {
     let file = std::fs::File::open(path).ok()?;
     let mut bufreader = std::io::BufReader::new(&file);
-    let exif = exif::Reader::new().read_from_container(&mut bufreader).ok()?;
+    let exif = exif::Reader::new()
+        .read_from_container(&mut bufreader)
+        .ok()?;
     for tag in &[
         exif::Tag::DateTimeOriginal,
         exif::Tag::DateTimeDigitized,
@@ -134,7 +134,9 @@ fn clear_thumbnail_file(config_dir: &str, path: &str) {
     let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
     let key = cache_key_for(path, modified, size);
     let _ = std::fs::remove_file(
-        Path::new(config_dir).join(THUMBS_DIR).join(format!("{key}.jpg")),
+        Path::new(config_dir)
+            .join(THUMBS_DIR)
+            .join(format!("{key}.jpg")),
     );
 }
 
@@ -190,7 +192,10 @@ impl PhotoStore {
                 continue;
             }
             let absolutized = path.to_path_buf();
-            let photo = read_photo(&absolutized, favorites.contains(&absolutized.to_string_lossy().to_string()));
+            let photo = read_photo(
+                &absolutized,
+                favorites.contains(&absolutized.to_string_lossy().to_string()),
+            );
             photos.push(photo);
         }
         photos.sort_by(|a, b| b.taken_at.cmp(&a.taken_at));
@@ -254,7 +259,11 @@ impl PhotoStore {
         Ok(album)
     }
 
-    pub fn add_photos_to_album(&self, album_id: String, photos: Vec<String>) -> Result<Album, String> {
+    pub fn add_photos_to_album(
+        &self,
+        album_id: String,
+        photos: Vec<String>,
+    ) -> Result<Album, String> {
         let mut lock = self.data.lock().map_err(|e| e.to_string())?;
         let album = lock
             .albums
@@ -272,7 +281,11 @@ impl PhotoStore {
         Ok(result)
     }
 
-    pub fn remove_photos_from_album(&self, album_id: String, photos: Vec<String>) -> Result<Album, String> {
+    pub fn remove_photos_from_album(
+        &self,
+        album_id: String,
+        photos: Vec<String>,
+    ) -> Result<Album, String> {
         let mut lock = self.data.lock().map_err(|e| e.to_string())?;
         let album = lock
             .albums
@@ -404,7 +417,11 @@ mod tests {
         let root = tmp_dir("scan");
         let config = tmp_dir("scan_cfg");
         std::fs::write(std::path::Path::new(&root).join("a.PNG"), TINY_PNG).unwrap();
-        std::fs::write(std::path::Path::new(&root).join("note.txt"), b"not an image").unwrap();
+        std::fs::write(
+            std::path::Path::new(&root).join("note.txt"),
+            b"not an image",
+        )
+        .unwrap();
 
         let store = PhotoStore::new(config).unwrap();
         let photos = store.scan_directory(root).unwrap();
@@ -427,7 +444,10 @@ mod tests {
         assert!(reloaded.favorite_paths().unwrap().is_empty());
         store.set_favorite("/persistido.png".into(), true).unwrap();
         let reloaded_again = PhotoStore::new(config).unwrap();
-        assert_eq!(reloaded_again.favorite_paths().unwrap(), vec!["/persistido.png"]);
+        assert_eq!(
+            reloaded_again.favorite_paths().unwrap(),
+            vec!["/persistido.png"]
+        );
     }
 
     #[test]
@@ -435,11 +455,17 @@ mod tests {
         let config = tmp_dir("alb_cfg");
         let store = PhotoStore::new(config).unwrap();
         let album = store.create_album("Vacaciones".into()).unwrap();
-        let updated = store.add_photos_to_album(album.id.clone(), vec!["a.jpg".into(), "b.jpg".into()]).unwrap();
+        let updated = store
+            .add_photos_to_album(album.id.clone(), vec!["a.jpg".into(), "b.jpg".into()])
+            .unwrap();
         assert_eq!(updated.photo_paths.len(), 2);
-        let renamed = store.rename_album(album.id.clone(), "Viaje".into()).unwrap();
+        let renamed = store
+            .rename_album(album.id.clone(), "Viaje".into())
+            .unwrap();
         assert_eq!(renamed.name, "Viaje");
-        let removed = store.remove_photos_from_album(album.id.clone(), vec!["a.jpg".into()]).unwrap();
+        let removed = store
+            .remove_photos_from_album(album.id.clone(), vec!["a.jpg".into()])
+            .unwrap();
         assert_eq!(removed.photo_paths, vec!["b.jpg"]);
         store.delete_album(album.id.clone()).unwrap();
         assert!(store.list_albums().unwrap().is_empty());
@@ -454,11 +480,15 @@ mod tests {
         img.save(&png_path).unwrap();
         let store = PhotoStore::new(config.clone()).unwrap();
 
-        let bytes = store.thumbnail_bytes(png_path.to_string_lossy().to_string(), 256).unwrap();
+        let bytes = store
+            .thumbnail_bytes(png_path.to_string_lossy().to_string(), 256)
+            .unwrap();
         assert!(bytes.is_some());
         assert!(!bytes.unwrap().is_empty());
         // En caché: la segunda llamada también devuelve bytes
-        let again = store.thumbnail_bytes(png_path.to_string_lossy().to_string(), 256).unwrap();
+        let again = store
+            .thumbnail_bytes(png_path.to_string_lossy().to_string(), 256)
+            .unwrap();
         assert!(again.is_some());
         assert!(!again.unwrap().is_empty());
         // Caché persistida en disco bajo thumbs/
@@ -480,7 +510,9 @@ mod tests {
         let p = png_path.to_string_lossy().to_string();
         store.set_favorite(p.clone(), true).unwrap();
         let album = store.create_album("A".into()).unwrap();
-        store.add_photos_to_album(album.id, vec![p.clone()]).unwrap();
+        store
+            .add_photos_to_album(album.id, vec![p.clone()])
+            .unwrap();
 
         store.delete_photo(p.clone()).unwrap();
 
