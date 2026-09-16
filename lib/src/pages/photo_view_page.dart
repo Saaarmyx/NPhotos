@@ -3,9 +3,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../design/nexora_tokens.dart';
 import '../core.dart';
 import '../rust/api.dart';
 
+/// Visor NEXORA (dark, inmersivo): UI conceptual de zoom/navegación/
+/// favorito/compartir/eliminar/info. La lógica de datos se mantiene.
 class PhotoViewPage extends StatefulWidget {
   const PhotoViewPage({
     super.key,
@@ -24,8 +27,11 @@ class PhotoViewPage extends StatefulWidget {
 
 class _PhotoViewPageState extends State<PhotoViewPage> {
   late final PageController _controller;
+  final TransformationController _transform = TransformationController();
   late int _index;
   int _rotation = 0;
+  double _zoom = 1.0;
+  bool _barVisible = true;
 
   @override
   void initState() {
@@ -37,6 +43,7 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _transform.dispose();
     super.dispose();
   }
 
@@ -60,8 +67,8 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
         SnackBar(
           content: Text(
             widget.photos[_index].isFavorite
-                ? 'Marcada como favorita'
-                : 'Quitada de favoritos',
+                ? 'Marked as favorite'
+                : 'Removed from favorites',
           ),
         ),
       );
@@ -75,7 +82,8 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
     final album = await showDialog<Album>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Elegir álbum'),
+        backgroundColor: NexoraPalette.of(context).elevated,
+        title: const Text('Choose an album'),
         children: [
           for (final a in controller.albums)
             SimpleDialogOption(
@@ -89,7 +97,7 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
       await controller.addToAlbum(album.id, [_photo.path]);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Añadida al álbum')),
+          const SnackBar(content: Text('Added to album')),
         );
       }
       widget.onChanged?.call();
@@ -106,16 +114,17 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Mover a papelera'),
-        content: Text('¿Mover "${_photo.name}" a la papelera?'),
+        title: const Text('Move to Trash'),
+        content: Text('Move "${_photo.name}" to Trash?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: NXColors.primary),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Mover'),
+            child: const Text('Move'),
           ),
         ],
       ),
@@ -136,7 +145,7 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
     widget.onChanged?.call();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Movida a la papelera')),
+        const SnackBar(content: Text('Moved to Trash')),
       );
     }
   }
@@ -161,7 +170,41 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
     widget.onChanged?.call();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Movida a carpeta segura')),
+        const SnackBar(content: Text('Moved to Secure Folder')),
+      );
+    }
+  }
+
+  void _resetTransform() {
+    _transform.value = Matrix4.identity();
+  }
+
+  void _next() {
+    if (_index < widget.photos.length - 1) {
+      setState(() {
+        _index++;
+        _rotation = 0;
+        _zoom = 1;
+      });
+      _resetTransform();
+      _controller.nextPage(
+        duration: NXTransition.slow,
+        curve: NXTransition.accent,
+      );
+    }
+  }
+
+  void _previous() {
+    if (_index > 0) {
+      setState(() {
+        _index--;
+        _rotation = 0;
+        _zoom = 1;
+      });
+      _resetTransform();
+      _controller.previousPage(
+        duration: NXTransition.slow,
+        curve: NXTransition.accent,
       );
     }
   }
@@ -170,126 +213,240 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
   Widget build(BuildContext context) {
     final photo = _photo;
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: Text(photo.name),
-        actions: [
-          IconButton(
-            icon: Icon(
-              photo.isFavorite ? Icons.favorite : Icons.favorite_border,
-              color: photo.isFavorite ? Colors.red : null,
-            ),
-            tooltip: 'Favorita',
-            onPressed: _toggleFavorite,
-          ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              switch (value) {
-                case 'album':
-                  _addToAlbum();
-                case 'rotate':
-                  _rotate();
-                case 'secure':
-                  _moveToSecure();
-                case 'trash':
-                  _moveToTrash();
-              }
+      backgroundColor: const Color(0xFF050507),
+      body: Stack(
+        children: [
+          PageView.builder(
+            controller: _controller,
+            itemCount: widget.photos.length,
+            onPageChanged: (i) => setState(() {
+              _index = i;
+              _rotation = 0;
+              _zoom = 1;
+              _resetTransform();
+            }),
+            itemBuilder: (context, index) {
+              final p = widget.photos[index];
+              return Center(
+                child: _zoomable(p),
+              );
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(
-                value: 'album',
-                child: ListTile(
-                  leading: Icon(Icons.photo_library_outlined),
-                  title: Text('Añadir a álbum'),
-                  contentPadding: EdgeInsets.zero,
+          ),
+          // Barra superior
+          AnimatedSlide(
+            duration: NXTransition.base,
+            curve: NXTransition.easeOut,
+            offset: _barVisible ? Offset.zero : const Offset(0, -1),
+            child: _ViewerTopBar(
+              photo: photo,
+              index: _index + 1,
+              total: widget.photos.length,
+              onClose: () => Navigator.of(context).pop(),
+              onFavorite: _toggleFavorite,
+              onInfo: () => _showInfo(context, photo),
+            ),
+          ),
+          // Controles de navegación laterales
+          if (_barVisible)
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: true,
+                child: AnimatedOpacity(
+                  duration: NXTransition.base,
+                  opacity: _barVisible ? 1 : 0,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _NavButton(
+                        icon: Icons.chevron_left_rounded,
+                        onPressed: _index > 0 ? _previous : null,
+                      ),
+                      _NavButton(
+                        icon: Icons.chevron_right_rounded,
+                        onPressed: _index < widget.photos.length - 1 ? _next : null,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              PopupMenuItem(
-                value: 'rotate',
-                child: ListTile(
-                  leading: Icon(Icons.rotate_90_degrees_ccw_outlined),
-                  title: Text('Rotar 90°'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: 'secure',
-                child: ListTile(
-                  leading: Icon(Icons.lock_outline),
-                  title: Text('Mover a carpeta segura'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: 'trash',
-                child: ListTile(
-                  leading: Icon(Icons.delete_outline),
-                  title: Text('Mover a papelera'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
+            ),
+          // Barra inferior de acciones (concepto de UI)
+          AnimatedSlide(
+            duration: NXTransition.base,
+            curve: NXTransition.easeOut,
+            offset: _barVisible ? Offset.zero : const Offset(0, 1),
+            child: _ViewerBottomBar(
+              photo: photo,
+              onRotate: _rotate,
+              onAddToAlbum: _addToAlbum,
+              onSecure: _moveToSecure,
+              onTrash: _moveToTrash,
+            ),
           ),
         ],
-      ),
-      body: PageView.builder(
-        controller: _controller,
-        itemCount: widget.photos.length,
-        onPageChanged: (i) => setState(() {
-          _index = i;
-          _rotation = 0;
-        }),
-        itemBuilder: (context, index) {
-          final p = widget.photos[index];
-          return Center(
-            child: _zoomable(
-              p,
-            ),
-          );
-        },
-      ),
-      bottomNavigationBar: _MetadataBar(
-        photo: photo,
-        onRotate: _rotate,
-        onTrash: _moveToTrash,
       ),
     );
   }
 
   Widget _zoomable(Photo p) {
     final file = File(p.path);
-    final widget = Image.file(
+    final image = Image.file(
       file,
       fit: BoxFit.contain,
+      gaplessPlayback: true,
+      filterQuality: FilterQuality.high,
       errorBuilder: (_, _, err) => Center(
         child: Text(
           'No se pudo cargar la imagen\n$err',
-          style: const TextStyle(color: Colors.white54),
           textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
         ),
       ),
     );
-    return InteractiveViewer(
-      maxScale: 8,
-      child: Transform.rotate(
-        angle: _rotation * 3.141592653589793 / 180,
-        child: widget,
+    return GestureDetector(
+      onTap: () => setState(() => _barVisible = !_barVisible),
+      onDoubleTap: () => setState(() {
+        _zoom = _zoom == 1 ? 2.0 : 1.0;
+        _resetTransform();
+      }),
+      child: InteractiveViewer(
+        maxScale: 8,
+        transformationController: _transform,
+        child: Transform.rotate(
+          angle: _rotation * 3.141592653589793 / 180,
+          child: image,
+        ),
+      ),
+    );
+  }
+
+  void _showInfo(BuildContext context, Photo photo) {
+    final sizeMb = (photo.sizeBytes.toDouble() / 1048576).toStringAsFixed(2);
+    final date = photo.takenAt == null
+        ? 'Unknown'
+        : DateFormat('dd MMM yyyy HH:mm').format(
+            DateTime.tryParse(photo.takenAt!) ?? DateTime.now(),
+          );
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: NexoraPalette.of(context).elevated,
+        title: const Text('Info'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _InfoRow(label: 'Name', value: photo.name),
+            _InfoRow(label: 'Size', value: '$sizeMb MB'),
+            _InfoRow(label: 'Dimensions', value: '${photo.width} × ${photo.height}'),
+            _InfoRow(label: 'Taken', value: date),
+            _InfoRow(label: 'Path', value: photo.path),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _MetadataBar extends StatelessWidget {
-  const _MetadataBar({
+class _ViewerTopBar extends StatelessWidget {
+  const _ViewerTopBar({
+    required this.photo,
+    required this.index,
+    required this.total,
+    required this.onClose,
+    required this.onFavorite,
+    required this.onInfo,
+  });
+
+  final Photo photo;
+  final int index;
+  final int total;
+  final VoidCallback onClose;
+  final VoidCallback onFavorite;
+  final VoidCallback onInfo;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(NXSpace.s16, NXSpace.s12, NXSpace.s16, NXSpace.s12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xE6050507), Color(0x00050507)],
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Row(
+            children: [
+              _ViewerIcon(
+                icon: Icons.close_rounded,
+                tooltip: 'Close',
+                onPressed: onClose,
+              ),
+              const SizedBox(width: NXSpace.s12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      photo.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: NXText.albumName(context).copyWith(color: Colors.white),
+                    ),
+                    Text(
+                      '$index of $total',
+                      style: NXText.muted(context)
+                          .copyWith(color: Colors.white.withValues(alpha: 0.6)),
+                    ),
+                  ],
+                ),
+              ),
+              _ViewerIcon(
+                icon: photo.isFavorite
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
+                tooltip: photo.isFavorite ? 'Remove from favorites' : 'Favorite',
+                onPressed: onFavorite,
+                highlighted: photo.isFavorite,
+              ),
+              const SizedBox(width: NXSpace.s6),
+              _ViewerIcon(
+                icon: Icons.info_outline_rounded,
+                tooltip: 'Info',
+                onPressed: onInfo,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ViewerBottomBar extends StatelessWidget {
+  const _ViewerBottomBar({
     required this.photo,
     required this.onRotate,
+    required this.onAddToAlbum,
+    required this.onSecure,
     required this.onTrash,
   });
 
   final Photo photo;
   final VoidCallback onRotate;
+  final VoidCallback onAddToAlbum;
+  final VoidCallback onSecure;
   final VoidCallback onTrash;
 
   @override
@@ -300,33 +457,156 @@ class _MetadataBar extends StatelessWidget {
         : DateFormat('dd MMM yyyy HH:mm').format(
             DateTime.tryParse(photo.takenAt!) ?? DateTime.now(),
           );
-    return Container(
-      color: Colors.black,
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: [Color(0xE6050507), Color(0x00050507)],
+          ),
+        ),
+        padding: const EdgeInsets.fromLTRB(NXSpace.s24, NXSpace.s28, NXSpace.s24, NXSpace.s24),
+        child: SafeArea(
+          top: false,
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Expanded(
-                child: Text(
-                  '${photo.width}x${photo.height}  •  $sizeMb MB  •  $date',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
+              Text(
+                '${photo.width}×${photo.height}  •  $sizeMb MB  •  $date',
+                style: NXText.muted(context)
+                    .copyWith(color: Colors.white.withValues(alpha: 0.75)),
               ),
-              IconButton(
-                icon: const Icon(Icons.rotate_90_degrees_ccw_outlined,
-                    color: Colors.white70),
-                tooltip: 'Rotar 90°',
+              const SizedBox(width: NXSpace.s20),
+              const SizedBox(width: 1, height: 24),
+              const SizedBox(width: NXSpace.s20),
+              _ViewerIcon(
+                icon: Icons.rotate_90_degrees_ccw_outlined,
+                tooltip: 'Rotate 90°',
                 onPressed: onRotate,
               ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.white70),
-                tooltip: 'Mover a papelera',
+              _ViewerIcon(
+                icon: Icons.library_add_outlined,
+                tooltip: 'Add to album',
+                onPressed: onAddToAlbum,
+              ),
+              _ViewerIcon(
+                icon: Icons.lock_outline_rounded,
+                tooltip: 'Move to Secure Folder',
+                onPressed: onSecure,
+              ),
+              _ViewerIcon(
+                icon: Icons.delete_outline_rounded,
+                tooltip: 'Move to Trash',
                 onPressed: onTrash,
+                danger: true,
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ViewerIcon extends StatelessWidget {
+  const _ViewerIcon({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.highlighted = false,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final bool highlighted;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger
+        ? NXColors.primary
+        : highlighted
+            ? NXColors.primary
+            : Colors.white.withValues(alpha: 0.9);
+    final child = MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Tooltip(
+        message: tooltip,
+        child: GestureDetector(
+          onTap: onPressed,
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            ),
+            child: Icon(icon, size: 20, color: color),
+          ),
+        ),
+      ),
+    );
+    return child;
+  }
+}
+
+class _NavButton extends StatelessWidget {
+  const _NavButton({required this.icon, this.onPressed});
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        ),
+        child: IconButton(
+          icon: Icon(icon, size: 22, color: Colors.white),
+          onPressed: onPressed,
+          hoverColor: Colors.white.withValues(alpha: 0.1),
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = NexoraPalette.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: NXSpace.s6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: NXText.muted(context).copyWith(color: palette.textMuted),
+            ),
+          ),
+          Expanded(
+            child: Text(value, style: NXText.metadata(context).copyWith(color: palette.textSecondary)),
+          ),
+        ],
       ),
     );
   }

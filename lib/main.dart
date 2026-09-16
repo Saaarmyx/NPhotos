@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
 
+import 'design/nexora_theme.dart';
+import 'design/nexora_tokens.dart';
 import 'src/core.dart';
+import 'src/pages/album_view_page.dart';
 import 'src/pages/albums_page.dart';
-import 'src/pages/captures_page.dart';
+import 'src/pages/downloads_view.dart';
 import 'src/pages/favorites_page.dart';
-import 'src/pages/gallery_page.dart';
+import 'src/pages/photos_view.dart';
+import 'src/pages/recently_view.dart';
+import 'src/pages/screenshots_view.dart';
 import 'src/pages/secure_folder_page.dart';
 import 'src/pages/settings_page.dart';
 import 'src/pages/trash_page.dart';
 import 'src/pages/videos_page.dart';
+import 'src/rust/api.dart';
+import 'widgets/nphotos_sidebar.dart';
+import 'widgets/nphotos_topbar.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,43 +31,30 @@ class NexoraPhotosApp extends StatefulWidget {
 }
 
 class _NexoraPhotosAppState extends State<NexoraPhotosApp> {
-  int _index = 0;
-
-  static const _destinations = [
-    _RailDest(icon: Icons.photo_library_outlined, label: 'Galería'),
-    _RailDest(icon: Icons.favorite_outline, label: 'Favoritos'),
-    _RailDest(icon: Icons.collections_outlined, label: 'Álbumes'),
-    _RailDest(icon: Icons.delete_outline, label: 'Papelera'),
-    _RailDest(icon: Icons.videocam_outlined, label: 'Videos'),
-    _RailDest(icon: Icons.crop_landscape_outlined, label: 'Capturas'),
-    _RailDest(icon: Icons.lock_outline, label: 'Carpeta segura'),
-    _RailDest(icon: Icons.settings_outlined, label: 'Config'),
-  ];
+  NPhotoSection _section = NPhotoSection.photos;
 
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: appThemeMode,
       builder: (context, mode, _) => MaterialApp(
-        title: 'Nexora Photos',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        ),
-        darkTheme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.deepPurple,
-            brightness: Brightness.dark,
-          ),
-        ),
+        title: 'NPhotos',
+        debugShowCheckedModeBanner: false,
+        theme: buildNexoraTheme(Brightness.light),
+        darkTheme: buildNexoraTheme(Brightness.dark),
         themeMode: mode,
         home: FutureBuilder<StoreController>(
           future: StoreController.instance(),
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return Scaffold(
+                backgroundColor: NexoraPalette.dark.background,
                 body: Center(
-                  child: Text('Error inicializando Rust: ${snapshot.error}',
-                      textAlign: TextAlign.center),
+                  child: Text(
+                    'Error initializing Rust: ${snapshot.error}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: NexoraPalette.dark.textSecondary),
+                  ),
                 ),
               );
             }
@@ -68,9 +63,10 @@ class _NexoraPhotosAppState extends State<NexoraPhotosApp> {
                 body: Center(child: CircularProgressIndicator()),
               );
             }
-            return _MainShell(
-              index: _index,
-              onChanged: (i) => setState(() => _index = i),
+            return NPhotosShell(
+              controller: snapshot.data!,
+              section: _section,
+              onSectionSelected: (s) => setState(() => _section = s),
             );
           },
         ),
@@ -79,61 +75,131 @@ class _NexoraPhotosAppState extends State<NexoraPhotosApp> {
   }
 }
 
-class _RailDest {
-  const _RailDest({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
+/// Estructura conceptual NEXORA: Sidebar + TopBar + Content.
+class NPhotosShell extends StatefulWidget {
+  const NPhotosShell({
+    super.key,
+    required this.controller,
+    required this.section,
+    required this.onSectionSelected,
+  });
+
+  final StoreController controller;
+  final NPhotoSection section;
+  final ValueChanged<NPhotoSection> onSectionSelected;
+
+  @override
+  State<NPhotosShell> createState() => _NPhotosShellState();
 }
 
-class _MainShell extends StatelessWidget {
-  const _MainShell({required this.index, required this.onChanged});
+class _NPhotosShellState extends State<NPhotosShell> {
+  final Set<NPhotoSection> _built = {};
 
-  final int index;
-  final ValueChanged<int> onChanged;
+  @override
+  void initState() {
+    super.initState();
+    _built.add(widget.section);
+  }
+
+  Widget _pageFor(NPhotoSection section) {
+    switch (section) {
+      case NPhotoSection.photos:
+        return const PhotosView();
+      case NPhotoSection.recentlyAdded:
+        return const RecentlyAddedView();
+      case NPhotoSection.albums:
+        return const AlbumsPage();
+      case NPhotoSection.favorites:
+        return const FavoritesPage();
+      case NPhotoSection.videos:
+        return const VideosPage();
+      case NPhotoSection.screenshots:
+        return const ScreenshotsView();
+      case NPhotoSection.downloads:
+        return const DownloadsView();
+      case NPhotoSection.trash:
+        return const TrashPage();
+      case NPhotoSection.secureFolder:
+        return const SecureFolderPage();
+      case NPhotoSection.settings:
+        return const SettingsPage();
+    }
+  }
+
+  void _select(NPhotoSection section) {
+    setState(() {
+      _built.add(section);
+      widget.onSectionSelected(section);
+    });
+  }
+
+  Future<void> _openAlbum(Album album) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AlbumViewPage(album: album),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
-    const pages = [
-      GalleryPage(),
-      FavoritesPage(),
-      AlbumsPage(),
-      TrashPage(),
-      VideosPage(),
-      CapturesPage(),
-      SecureFolderPage(),
-      SettingsPage(),
-    ];
+    final sections = NPhotoSection.values;
+    final isSearchEnabled = switch (widget.section) {
+      NPhotoSection.photos ||
+      NPhotoSection.recentlyAdded ||
+      NPhotoSection.favorites ||
+      NPhotoSection.screenshots ||
+      NPhotoSection.downloads =>
+        true,
+      _ => false,
+    };
+
     return Scaffold(
       body: Row(
         children: [
-          NavigationRail(
-            selectedIndex: index,
-            onDestinationSelected: onChanged,
-            extended: true,
-            labelType: NavigationRailLabelType.none,
-            leading: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Row(
-                children: const [
-                  SizedBox(width: 16),
-                  Icon(Icons.burst_mode, color: Colors.deepPurple),
-                  SizedBox(width: 8),
-                  Text('Nexora',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                ],
-              ),
+          ListenableBuilder(
+            listenable: widget.controller,
+            builder: (context, _) => NPhotosSidebar(
+              sections: sections,
+              current: widget.section,
+              onSectionSelected: _select,
+              albums: widget.controller.albums,
+              onAlbumTap: _openAlbum,
             ),
-            destinations: [
-              for (final d in _NexoraPhotosAppState._destinations)
-                NavigationRailDestination(
-                  icon: Icon(d.icon),
-                  selectedIcon: Icon(d.icon),
-                  label: Text(d.label),
-                ),
-            ],
           ),
-          const VerticalDivider(thickness: 1, width: 1),
-          Expanded(child: IndexedStack(index: index, children: pages)),
+          Expanded(
+            child: Column(
+              children: [
+                NPhotosTopBar(
+                  title: widget.section.title,
+                  enableSearch: isSearchEnabled,
+                  onQueryChanged: (v) => globalSearchQuery.value = v,
+                  actions: [
+                    ValueListenableBuilder<ThemeMode>(
+                      valueListenable: appThemeMode,
+                      builder: (context, mode, _) => NPhotosThemeToggle(
+                        isDark: mode != ThemeMode.light,
+                        onToggle: () => appThemeMode.value =
+                            mode == ThemeMode.dark
+                                ? ThemeMode.light
+                                : ThemeMode.dark,
+                      ),
+                    ),
+                  ],
+                ),
+                Expanded(
+                  child: IndexedStack(
+                    index: widget.section.index,
+                    children: [
+                      for (final s in sections)
+                        _built.contains(s) ? _pageFor(s) : const SizedBox.shrink(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../design/nexora_tokens.dart';
+import '../../widgets/nphotos_empty_state.dart';
+import '../../widgets/section_header.dart';
 import '../core.dart';
 import '../rust/api.dart';
 import '../widgets/pin_dialog.dart';
@@ -137,7 +140,7 @@ class _SecureFolderPageState extends State<SecureFolderPage>
     await _load();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Restaurada')),
+        const SnackBar(content: Text('Restored to your library')),
       );
     }
   }
@@ -148,19 +151,19 @@ class _SecureFolderPageState extends State<SecureFolderPage>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Eliminar de carpeta segura'),
-        content: Text('¿Borrar "${entry.name}" definitivamente?'),
+        title: const Text('Delete from Secure Folder'),
+        content: Text('Delete "${entry.name}" permanently?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
+              backgroundColor: NXColors.primary,
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Eliminar'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -173,72 +176,86 @@ class _SecureFolderPageState extends State<SecureFolderPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Carpeta segura'),
-        actions: [
-          if (_pinSet == true)
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                switch (value) {
-                  case 'change':
-                    _changePin();
-                  case 'clear':
-                    _clearPin();
-                }
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'change', child: Text('Cambiar PIN')),
-                PopupMenuItem(value: 'clear', child: Text('Desactivar PIN')),
-              ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: NXSpace.s20),
+          child: SectionHeader(
+            title: 'Secure Folder',
+            subtitle: _pinSet == true && _unlocked
+                ? '${_items.length} ${_items.length == 1 ? 'item' : 'items'} protected'
+                : _pinSet == true
+                    ? 'Locked with a PIN'
+                    : 'Protect photos with a PIN',
+            padding: const EdgeInsets.fromLTRB(
+              NXSpace.s24,
+              0,
+              NXSpace.s24,
+              NXSpace.s16,
             ),
-        ],
-      ),
-      body: _buildBody(),
+            trailing: _pinSet == true
+                ? PopupMenuButton<String>(
+                    color: NexoraPalette.of(context).elevated,
+                    surfaceTintColor: Colors.transparent,
+                    icon: const Icon(Icons.more_horiz_rounded),
+                    onSelected: (value) {
+                      if (value == 'change') _changePin();
+                      if (value == 'clear') _clearPin();
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'change', child: Text('Cambiar PIN')),
+                      PopupMenuItem(value: 'clear', child: Text('Desactivar PIN')),
+                    ],
+                  )
+                : null,
+          ),
+        ),
+        Expanded(child: _buildBody()),
+      ],
     );
   }
 
   Widget _buildBody() {
     if (_pinSet == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const NPhotosLoadingState();
     }
     if (_pinSet == false) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.lock_outline, size: 80, color: Colors.grey),
-            const SizedBox(height: 16),
-            const Text('Protege tus fotos con un PIN'),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              icon: const Icon(Icons.lock),
-              label: const Text('Configurar PIN'),
-              onPressed: _setupPin,
-            ),
-          ],
-        ),
+      return NPhotosEmptyState(
+        icon: Icons.lock_outline_rounded,
+        title: 'Protect with a PIN',
+        subtitle:
+            'Move private photos here so only you (with your PIN) can see them.',
+        actionLabel: 'Set up PIN',
+        onAction: _setupPin,
       );
     }
     if (!_unlocked) {
-      return const Center(
-        child: Text('Carpeta bloqueada. Reabre la sección para desbloquearla.'),
+      return NPhotosEmptyState(
+        icon: Icons.lock_outline_rounded,
+        title: 'Secure Folder locked',
+        subtitle: 'Reopen the section and enter your PIN to unlock it.',
       );
     }
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const NPhotosLoadingState();
     }
     if (_items.isEmpty) {
-      return const Center(
-        child: Text(
-          'Carpeta vacía.\nMueve fotos desde Galería con el menú contextual.',
-          textAlign: TextAlign.center,
-        ),
+      return NPhotosEmptyState(
+        icon: Icons.lock_outline_rounded,
+        title: 'Secure Folder is empty',
+        subtitle: 'Move photos here from Photos using the context menu.',
       );
     }
-    return ListView.builder(
-      padding: const EdgeInsets.all(8),
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(
+        NXSpace.s24,
+        NXSpace.s4,
+        NXSpace.s24,
+        NXSpace.s32,
+      ),
       itemCount: _items.length,
+      separatorBuilder: (_, _) => const SizedBox(height: NXSpace.s8),
       itemBuilder: (context, i) => TrashItemTile(
         entry: _items[i],
         onRestore: () => _restore(_items[i]),

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../design/nexora_tokens.dart';
+import '../../widgets/nphotos_button.dart';
+import '../../widgets/nphotos_empty_state.dart';
+import '../../widgets/section_header.dart';
 import '../core.dart';
 import '../rust/api.dart';
 
@@ -22,12 +26,12 @@ class _VideosPageState extends State<VideosPage>
   @override
   void initState() {
     super.initState();
-    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   Future<void> _load() async {
     final controller = await StoreController.instance();
-    setState(() => _loading = true);
+    if (mounted) setState(() => _loading = true);
     try {
       final videos = await controller.scanAllVideos();
       if (!mounted) return;
@@ -48,87 +52,174 @@ class _VideosPageState extends State<VideosPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Videos'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Actualizar',
-            onPressed: _load,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: NXSpace.s20),
+          child: SectionHeader(
+            title: 'Videos',
+            subtitle:
+                '${_videos.length} ${_videos.length == 1 ? 'clip' : 'clips'} on this device',
+            padding: const EdgeInsets.fromLTRB(
+              NXSpace.s24,
+              0,
+              NXSpace.s24,
+              NXSpace.s16,
+            ),
+            trailing: NPhotosIconButton(
+              icon: Icons.refresh_rounded,
+              tooltip: 'Rescan videos',
+              onPressed: _load,
+            ),
           ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text('Error: $_error'))
-              : _videos.isEmpty
-                  ? const Center(child: Text('No se encontraron videos'))
-                  : GridView.builder(
-                      padding: const EdgeInsets.all(8),
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 220,
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
-                        childAspectRatio: 0.8,
-                      ),
-                      itemCount: _videos.length,
-                      itemBuilder: (context, i) => _VideoCard(video: _videos[i]),
-                    ),
+        ),
+        Expanded(
+          child: _loading
+              ? const NPhotosLoadingState(label: 'Scanning videos…')
+              : _error != null
+                  ? NPhotosEmptyState(
+                      icon: Icons.error_outline_rounded,
+                      title: 'Could not scan videos',
+                      subtitle: _error,
+                      actionLabel: 'Retry',
+                      onAction: _load,
+                    )
+                  : _videos.isEmpty
+                      ? NPhotosEmptyState(
+                          icon: Icons.movie_outlined,
+                          title: 'No videos found',
+                          subtitle:
+                              'Videos (.mp4, .mov…) in your personal folder '
+                              'will appear here.',
+                        )
+                      : GridView.builder(
+                          padding: const EdgeInsets.fromLTRB(
+                            NXSpace.s24,
+                            NXSpace.s4,
+                            NXSpace.s24,
+                            NXSpace.s32,
+                          ),
+                          gridDelegate:
+                              const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 220,
+                            mainAxisSpacing: NXSpace.s14,
+                            crossAxisSpacing: NXSpace.s14,
+                            childAspectRatio: 0.75,
+                          ),
+                          itemCount: _videos.length,
+                          itemBuilder: (context, i) =>
+                              NPhotosVideoCard(video: _videos[i]),
+                        ),
+        ),
+      ],
     );
   }
 }
 
-class _VideoCard extends StatelessWidget {
-  const _VideoCard({required this.video});
+class NPhotosVideoCard extends StatefulWidget {
+  const NPhotosVideoCard({super.key, required this.video});
 
   final VideoFile video;
 
   @override
+  State<NPhotosVideoCard> createState() => _NPhotosVideoCardState();
+}
+
+class _NPhotosVideoCardState extends State<NPhotosVideoCard> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final sizeMb = (video.sizeBytes.toDouble() / 1048576).toStringAsFixed(1);
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: InkWell(
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Reproducción aún no disponible'),
-                  ),
-                );
-              },
-              child: Container(
-                color: Colors.black87,
-                child: const Icon(Icons.movie, size: 48, color: Colors.white70),
+    final palette = NexoraPalette.of(context);
+    final sizeMb = (widget.video.sizeBytes.toDouble() / 1048576).toStringAsFixed(1);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Playback coming soon')),
+          );
+        },
+        child: AnimatedContainer(
+          duration: NXTransition.base,
+          curve: NXTransition.easeOut,
+          decoration: BoxDecoration(
+            color: palette.elevated,
+            borderRadius: BorderRadius.circular(NXRadius.radius14),
+            border: Border.all(
+              color: _hovered
+                  ? NXColors.primary.withValues(alpha: 0.35)
+                  : palette.border.withValues(alpha: 0.6),
+            ),
+            boxShadow: _hovered ? NXShadow.neutral(Theme.of(context)) : null,
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [NXColors.darkSurface, NXColors.darkBg],
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.movie_outlined,
+                        size: 46,
+                        color: Colors.white.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    Center(
+                      child: AnimatedContainer(
+                        duration: NXTransition.base,
+                        width: _hovered ? 52 : 44,
+                        height: _hovered ? 52 : 44,
+                        decoration: const BoxDecoration(
+                          color: NXColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _hovered ? Icons.play_arrow_rounded : Icons.play_arrow,
+                          size: 26,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  video.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium,
+              Padding(
+                padding: const EdgeInsets.all(NXSpace.s12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.video.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: NXText.albumName(context),
+                    ),
+                    const SizedBox(height: NXSpace.s2),
+                    Text(
+                      '$sizeMb MB · ${widget.video.extension_.toUpperCase()}',
+                      style: NXText.muted(context).copyWith(color: palette.textBody),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '$sizeMb MB · ${video.extension_.toUpperCase()}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

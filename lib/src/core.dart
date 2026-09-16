@@ -6,7 +6,10 @@ import 'rust/api.dart';
 import 'rust/frb_generated.dart';
 
 /// Modo de tema de la app (claro/oscuro/sistema), compartido entre páginas.
-final ValueNotifier<ThemeMode> appThemeMode = ValueNotifier(ThemeMode.system);
+final ValueNotifier<ThemeMode> appThemeMode = ValueNotifier(ThemeMode.dark);
+
+/// Consulta global de búsqueda gestionada desde la barra superior.
+final ValueNotifier<String> globalSearchQuery = ValueNotifier('');
 
 class StoreController extends ChangeNotifier {
   StoreController._(this.store);

@@ -2,6 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../design/nexora_tokens.dart';
+import '../../widgets/nphotos_button.dart';
+import '../../widgets/section_header.dart';
 import '../core.dart';
 import '../rust/api.dart';
 import '../widgets/photo_grid.dart';
@@ -38,7 +41,7 @@ class _AlbumViewPageState extends State<AlbumViewPage> {
     if (candidates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Primero abre una carpeta en la pestaña Galería'),
+          content: Text('Primero escanea la biblioteca en la sección Photos'),
         ),
       );
       return;
@@ -58,35 +61,64 @@ class _AlbumViewPageState extends State<AlbumViewPage> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = NexoraPalette.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.album.name),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.library_add),
-            tooltip: 'Añadir fotos',
-            onPressed: _addFromGallery,
+      backgroundColor: palette.background,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SectionHeader(
+            padding: const EdgeInsets.fromLTRB(
+              NXSpace.s24,
+              NXSpace.s20,
+              NXSpace.s24,
+              NXSpace.s16,
+            ),
+            title: widget.album.name,
+            subtitle: '${widget.album.photoPaths.length} photos in this album',
+            trailing: Container(
+              decoration: BoxDecoration(
+                color: palette.surface,
+                borderRadius: BorderRadius.circular(NXRadius.radius12),
+                border: Border.all(color: palette.border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  NPhotosIconButton(
+                    icon: Icons.library_add_outlined,
+                    tooltip: 'Add photos',
+                    onPressed: _addFromGallery,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<List<Photo>>(
+              future: _photos,
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final photos = snapshot.data!;
+                return ThumbnailGrid(
+                  photos: photos,
+                  showFavoriteBadge: false,
+                  onRemoveRequest: (photo) async {
+                    final controller = await StoreController.instance();
+                    await controller.removeFromAlbum(
+                      widget.album.id,
+                      [photo.path],
+                    );
+                    widget.album.photoPaths.remove(photo.path);
+                    if (mounted) setState(() => _photos = _load());
+                  },
+                );
+              },
+            ),
           ),
         ],
-      ),
-      body: FutureBuilder<List<Photo>>(
-        future: _photos,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final photos = snapshot.data!;
-          return ThumbnailGrid(
-            photos: photos,
-            showFavoriteBadge: false,
-            onRemoveRequest: (photo) async {
-              final controller = await StoreController.instance();
-              await controller.removeFromAlbum(widget.album.id, [photo.path]);
-              widget.album.photoPaths.remove(photo.path);
-              if (mounted) setState(() => _photos = _load());
-            },
-          );
-        },
       ),
     );
   }
@@ -136,8 +168,9 @@ class _PickPhotosDialogState extends State<_PickPhotosDialog> {
                     File(photo.path),
                     fit: BoxFit.cover,
                     cacheWidth: 300,
-                    errorBuilder: (_, _, _) =>
-                        const ColoredBox(color: Color(0xFFEEEEEE)),
+                    errorBuilder: (_, _, _) => ColoredBox(
+                      color: NexoraPalette.of(context).placeholderA,
+                    ),
                   ),
                   if (isSelected)
                     Container(
