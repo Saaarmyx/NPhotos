@@ -31,12 +31,43 @@ const NOISE_DIRS: &[&str] = &[
     "env",
     "lost+found",
     "snap",
+    // Recursos de apps/entorno: iconos, temas, cachés, assets de Flutter…
+    "icons",
+    "iconos",
+    "themes",
+    "thumbnails",
+    "caches",
+    "flutter",
+    "mipmap",
+    "drawable",
+    "Assets.xcassets",
+];
+
+/// Prefijos de nombre que delatan iconos/recursos de apps (Flutter, Android…).
+const ICON_LIKE_PREFIXES: &[&str] = &[
+    "icon-",
+    "icon_",
+    "ic_launcher",
+    "favicon",
+    "apple-touch-icon",
+    "app_icon",
+    "appicon",
 ];
 
 fn home_dir() -> Result<PathBuf, String> {
     std::env::var("HOME")
         .map(PathBuf::from)
         .map_err(|_| "HOME not set".to_string())
+}
+
+/// Detecta archivos con pinta de icono/recurso de app por su nombre
+/// (Icon-192.png, ic_launcher.png, favicon.png, verificación-e-icon…).
+fn is_icon_like_file(path: &Path) -> bool {
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+    ICON_LIKE_PREFIXES.iter().any(|p| name.starts_with(p))
 }
 
 /// Omitir entradas ocultas, la carpeta de config de la app y ruido conocido.
@@ -245,14 +276,10 @@ impl PhotoStore {
     }
 
     fn collect_photos(&self, root: &Path, skip_noise: bool) -> Result<Vec<Photo>, String> {
-        let favorites: HashSet<String> = self
-            .data
-            .lock()
-            .map_err(|e| e.to_string())?
-            .favorite_paths
-            .iter()
-            .cloned()
-            .collect();
+        let lock = self.data.lock().map_err(|e| e.to_string())?;
+        let favorites: HashSet<String> = lock.favorite_paths.iter().cloned().collect();
+        let hidden: HashSet<String> = lock.hidden_paths.iter().cloned().collect();
+        drop(lock);
 
         let entries: Box<dyn Iterator<Item = walkdir::Result<walkdir::DirEntry>>> = if skip_noise {
             Box::new(WalkDir::new(root).into_iter().filter_entry(|e| {
@@ -275,10 +302,15 @@ impl PhotoStore {
                 continue;
             }
             let absolutized = path.to_path_buf();
-            let photo = read_photo(
-                &absolutized,
-                favorites.contains(&absolutized.to_string_lossy().to_string()),
-            );
+            let abs_str = absolutized.to_string_lossy().to_string();
+            if hidden.contains(&abs_str) {
+                continue;
+            }
+            // Iconos y recursos de apps no son fotos: se omiten en el escaneo global.
+            if skip_noise && is_icon_like_file(&absolutized) {
+                continue;
+            }
+            let photo = read_photo(&absolutized, favorites.contains(&abs_str));
             photos.push(photo);
         }
         sort_chrono(&mut photos);
@@ -323,6 +355,29 @@ impl PhotoStore {
             .lock()
             .map_err(|e| e.to_string())?
             .favorite_paths
+            .clone())
+    }
+
+    pub fn set_hidden(&self, path: String, is_hidden: bool) -> Result<(), String> {
+        let mut lock = self.data.lock().map_err(|e| e.to_string())?;
+        let hidden = &mut lock.hidden_paths;
+        if is_hidden {
+            if !hidden.contains(&path) {
+                hidden.push(path);
+            }
+        } else {
+            hidden.retain(|p| p != &path);
+        }
+        drop(lock);
+        self.save()
+    }
+
+    pub fn hidden_paths(&self) -> Result<Vec<String>, String> {
+        Ok(self
+            .data
+            .lock()
+            .map_err(|e| e.to_string())?
+            .hidden_paths
             .clone())
     }
 
@@ -463,6 +518,7 @@ impl PhotoStore {
         for album in &mut lock.albums {
             album.photo_paths.retain(|p| p != &path);
         }
+        lock.hidden_paths.retain(|p| p != &path);
         drop(lock);
         self.save()
     }
@@ -486,6 +542,7 @@ impl PhotoStore {
         for album in &mut lock.albums {
             album.photo_paths.retain(|p| p != &path);
         }
+        lock.hidden_paths.retain(|p| p != &path);
         lock.trash_items.push(MovedItem {
             name: name.clone(),
             original: path,
@@ -614,6 +671,7 @@ impl PhotoStore {
         for album in &mut lock.albums {
             album.photo_paths.retain(|p| p != &path);
         }
+        lock.hidden_paths.retain(|p| p != &path);
         lock.secure_items.push(MovedItem {
             name: name.clone(),
             original: path,
@@ -917,17 +975,65 @@ mod tests {
         let tmp = std::path::Path::new(&root);
         std::fs::create_dir_all(tmp.join("node_modules")).unwrap();
         std::fs::create_dir_all(tmp.join(".hidden")).unwrap();
+        std::fs::create_dir_all(tmp.join("web/icons")).unwrap();
         std::fs::write(tmp.join("home.png"), TINY_PNG).unwrap();
         std::fs::write(tmp.join("node_modules/junk.png"), TINY_PNG).unwrap();
         std::fs::write(tmp.join(".hidden/secret.png"), TINY_PNG).unwrap();
+        std::fs::write(tmp.join("web/icons/Icon-192.png"), TINY_PNG).unwrap();
 
         let photos = store.collect_photos(tmp, true).unwrap();
         assert_eq!(photos.len(), 1);
         assert_eq!(photos[0].name, "home.png");
 
-        // sin skip se encuentran las tres
+        // sin skip se encuentran las cuatro
         let all = store.collect_photos(tmp, false).unwrap();
-        assert_eq!(all.len(), 3);
+        assert_eq!(all.len(), 4);
+    }
+
+    #[test]
+    fn system_scan_filters_icon_like_files() {
+        let root = tmp_dir("sysicons");
+        let config = tmp_dir("sysicons_cfg");
+        let store = PhotoStore::new(config).unwrap();
+
+        let tmp = std::path::Path::new(&root);
+        std::fs::write(tmp.join("real.jpg"), TINY_PNG).unwrap();
+        std::fs::write(tmp.join("Icon-512.png"), TINY_PNG).unwrap();
+        std::fs::write(tmp.join("ic_launcher.png"), TINY_PNG).unwrap();
+        std::fs::write(tmp.join("favicon.png"), TINY_PNG).unwrap();
+        std::fs::write(tmp.join("logo.png"), TINY_PNG).unwrap();
+
+        let photos = store.collect_photos(tmp, true).unwrap();
+        let mut names: Vec<&str> = photos.iter().map(|p| p.name.as_str()).collect();
+        names.sort_unstable();
+        assert_eq!(names, vec!["logo.png", "real.jpg"]);
+    }
+
+    #[test]
+    fn hidden_photos_are_filtered_and_persist() {
+        let root = tmp_dir("hid");
+        let config = tmp_dir("hid_cfg");
+        let store = PhotoStore::new(config.clone()).unwrap();
+
+        let tmp = std::path::Path::new(&root);
+        let hidden_path = tmp.join("hide-me.png").to_string_lossy().to_string();
+        std::fs::write(&hidden_path, TINY_PNG).unwrap();
+        std::fs::write(tmp.join("show-me.png"), TINY_PNG).unwrap();
+
+        assert!(store.hidden_paths().unwrap().is_empty());
+        store.set_hidden(hidden_path.clone(), true).unwrap();
+        assert_eq!(store.hidden_paths().unwrap(), vec![hidden_path.clone()]);
+
+        let photos = store.collect_photos(tmp, false).unwrap();
+        assert_eq!(photos.len(), 1);
+        assert_eq!(photos[0].name, "show-me.png");
+
+        // persiste al recargar
+        let reloaded = PhotoStore::new(config).unwrap();
+        assert_eq!(reloaded.hidden_paths().unwrap(), vec![hidden_path.clone()]);
+
+        reloaded.set_hidden(hidden_path.clone(), false).unwrap();
+        assert!(reloaded.hidden_paths().unwrap().is_empty());
     }
 
     #[test]

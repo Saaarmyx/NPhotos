@@ -161,6 +161,7 @@ class ThumbnailGrid extends StatelessWidget {
       'fav': photo.isFavorite ? 'Quitar de favoritos' : 'Marcar como favorita',
       'album': 'Añadir a álbum',
       'secure': 'Mover a carpeta segura',
+      'hide': 'Ocultar foto',
     };
     if (onRemoveRequest != null) {
       options['remove'] = 'Quitar del álbum';
@@ -181,6 +182,7 @@ class ThumbnailGrid extends StatelessWidget {
                     'fav' => Icons.favorite_border_rounded,
                     'album' => Icons.photo_library_outlined,
                     'secure' => Icons.lock_outline_rounded,
+                    'hide' => Icons.visibility_off_outlined,
                     _ => Icons.playlist_remove_rounded,
                   },
                   size: 20,
@@ -200,6 +202,9 @@ class ThumbnailGrid extends StatelessWidget {
       await _addToAlbum(context, controller, photo);
     } else if (action == 'secure') {
       await controller.moveToSecure(photo);
+      onChanged?.call();
+    } else if (action == 'hide') {
+      await controller.setHidden(photo, isHidden: true);
       onChanged?.call();
     } else if (action == 'remove') {
       await onRemoveRequest?.call(photo);

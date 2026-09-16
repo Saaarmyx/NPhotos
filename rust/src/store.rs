@@ -18,4 +18,6 @@ pub struct StoreData {
     pub secure_items: Vec<MovedItem>,
     #[serde(default)]
     pub secure_pin_hash: Option<String>,
+    #[serde(default)]
+    pub hidden_paths: Vec<String>,
 }

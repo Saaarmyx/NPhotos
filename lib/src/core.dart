@@ -21,6 +21,7 @@ class StoreController extends ChangeNotifier {
 
   List<Photo> photos = [];
   List<String> favorites = [];
+  List<String> hiddenPaths = [];
   List<Album> albums = [];
   bool loading = false;
   String? errorText;
@@ -34,6 +35,7 @@ class StoreController extends ChangeNotifier {
     _instance = controller;
     await controller.refreshAlbums();
     await controller.refreshFavorites();
+    await controller.refreshHidden();
     return controller;
   }
 
@@ -59,6 +61,34 @@ class StoreController extends ChangeNotifier {
   Future<void> refreshFavorites() async {
     favorites = await store.favoritePaths();
     notifyListeners();
+  }
+
+  Future<void> refreshHidden() async {
+    hiddenPaths = await store.hiddenPaths();
+    notifyListeners();
+  }
+
+  /// Oculta una foto del álbum (persistente) o la vuelve a revelar.
+  Future<void> setHidden(Photo photo, {required bool isHidden}) async {
+    await store.setHidden(path: photo.path, isHidden: isHidden);
+    if (isHidden) {
+      final i = photos.indexWhere((p) => p.path == photo.path);
+      if (i != -1) photos.removeAt(i);
+    } else {
+      await scanAll();
+    }
+    await refreshHidden();
+  }
+
+  /// Revela por ruta (usado desde la gestión de ocultas en Ajustes).
+  Future<void> unhidePath(String path) async {
+    final fresh = await store.getPhotos(paths: [path]);
+    if (fresh.isNotEmpty) {
+      await setHidden(fresh.first, isHidden: false);
+    } else {
+      await store.setHidden(path: path, isHidden: false);
+      await refreshHidden();
+    }
   }
 
   Future<void> refreshAlbums() async {
@@ -105,6 +135,7 @@ class StoreController extends ChangeNotifier {
     await store.deletePhoto(path: path);
     await refreshFavorites();
     await refreshAlbums();
+    hiddenPaths.remove(path);
   }
 
   Future<void> moveToTrash(Photo photo) async {
@@ -114,6 +145,7 @@ class StoreController extends ChangeNotifier {
     await store.moveToTrash(path: photo.path);
     await refreshFavorites();
     await refreshAlbums();
+    hiddenPaths.remove(photo.path);
   }
 
   Future<MovedEntry> _moveToSecurePath(String path) =>
@@ -126,6 +158,7 @@ class StoreController extends ChangeNotifier {
     await _moveToSecurePath(photo.path);
     await refreshFavorites();
     await refreshAlbums();
+    hiddenPaths.remove(photo.path);
   }
 
   Future<List<MovedEntry>> listTrash() => store.listTrash();

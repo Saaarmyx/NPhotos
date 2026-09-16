@@ -175,6 +175,31 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
     }
   }
 
+  Future<void> _hidePhoto() async {
+    final controller = await StoreController.instance();
+    if (!mounted) return;
+    final path = _photo.path;
+    final photo = _photo;
+    await controller.setHidden(photo, isHidden: true);
+    if (!mounted) return;
+
+    final removedIndex = widget.photos.indexWhere((p) => p.path == path);
+    if (removedIndex != -1) widget.photos.removeAt(removedIndex);
+    if (widget.photos.isEmpty) {
+      Navigator.of(context).pop();
+    } else {
+      final newIndex = removedIndex.clamp(0, widget.photos.length - 1);
+      setState(() => _index = newIndex);
+      _controller.jumpToPage(newIndex);
+    }
+    widget.onChanged?.call();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Photo hidden from library')),
+      );
+    }
+  }
+
   void _resetTransform() {
     _transform.value = Matrix4.identity();
   }
@@ -280,6 +305,7 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
               onRotate: _rotate,
               onAddToAlbum: _addToAlbum,
               onSecure: _moveToSecure,
+              onHide: _hidePhoto,
               onTrash: _moveToTrash,
             ),
           ),
@@ -440,6 +466,7 @@ class _ViewerBottomBar extends StatelessWidget {
     required this.onRotate,
     required this.onAddToAlbum,
     required this.onSecure,
+    required this.onHide,
     required this.onTrash,
   });
 
@@ -447,6 +474,7 @@ class _ViewerBottomBar extends StatelessWidget {
   final VoidCallback onRotate;
   final VoidCallback onAddToAlbum;
   final VoidCallback onSecure;
+  final VoidCallback onHide;
   final VoidCallback onTrash;
 
   @override
@@ -495,6 +523,11 @@ class _ViewerBottomBar extends StatelessWidget {
                 icon: Icons.lock_outline_rounded,
                 tooltip: 'Move to Secure Folder',
                 onPressed: onSecure,
+              ),
+              _ViewerIcon(
+                icon: Icons.visibility_off_outlined,
+                tooltip: 'Hide from library',
+                onPressed: onHide,
               ),
               _ViewerIcon(
                 icon: Icons.delete_outline_rounded,

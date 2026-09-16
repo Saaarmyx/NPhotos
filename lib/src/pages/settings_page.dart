@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../design/nexora_tokens.dart';
@@ -77,6 +79,13 @@ class _SettingsPageState extends State<SettingsPage> {
               subtitle: 'Set up or change your PIN from its section',
               onTap: _managePin,
             ),
+          ],
+        ),
+        const SizedBox(height: NXSpace.s16),
+        _SettingsGroup(
+          title: 'LIBRARY',
+          children: [
+            const _HiddenPhotosTile(),
           ],
         ),
         const SizedBox(height: NXSpace.s16),
@@ -223,6 +232,118 @@ class _RowTitle extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _HiddenPhotosTile extends StatefulWidget {
+  const _HiddenPhotosTile();
+
+  @override
+  State<_HiddenPhotosTile> createState() => _HiddenPhotosTileState();
+}
+
+class _HiddenPhotosTileState extends State<_HiddenPhotosTile> {
+  late Future<List<String>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<List<String>> _load() async {
+    final controller = await StoreController.instance();
+    return controller.hiddenPaths;
+  }
+
+  Future<void> _reveal(String path) async {
+    final controller = await StoreController.instance();
+    await controller.unhidePath(path);
+    if (mounted) {
+      setState(() => _future = _load());
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Photo restored to the library')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = NexoraPalette.of(context);
+    return FutureBuilder<List<String>>(
+      future: _future,
+      builder: (context, snapshot) {
+        final paths = snapshot.data ?? const <String>[];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(NXSpace.s16),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.visibility_off_outlined,
+                    size: 20,
+                    color: NXColors.primary,
+                  ),
+                  const SizedBox(width: NXSpace.s12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Hidden Photos', style: NXText.albumName(context)),
+                        const SizedBox(height: NXSpace.s2),
+                        Text(
+                          paths.isEmpty
+                              ? 'Nothing hidden'
+                              : '${paths.length} '
+                                  '${paths.length == 1 ? 'item' : 'items'} '
+                                  'hidden from the archive',
+                          style: NXText.muted(context)
+                              .copyWith(color: palette.textBody),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            for (final path in paths) ...[
+              Divider(height: 1, color: palette.border),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  NXSpace.s16,
+                  NXSpace.s4,
+                  NXSpace.s8,
+                  NXSpace.s4,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        path.split(Platform.pathSeparator).isNotEmpty
+                            ? path.split(Platform.pathSeparator).last
+                            : path,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: NXText.muted(context)
+                            .copyWith(color: palette.textSecondary),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _reveal(path),
+                      icon: const Icon(Icons.visibility_outlined, size: 16),
+                      label: const Text('Show'),
+                      style: TextButton.styleFrom(foregroundColor: NXColors.primary),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }
