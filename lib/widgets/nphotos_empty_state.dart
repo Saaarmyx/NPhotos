@@ -38,19 +38,15 @@ class NPhotosEmptyState extends StatelessWidget {
                 colors: [NXColors.red10, NXColors.red20],
               ),
               borderRadius: BorderRadius.circular(NXRadius.radius24),
-              border: Border.all(
-                color: NXColors.red20,
-              ),
+              border: Border.all(color: NXColors.red20),
             ),
             child: Icon(icon, size: 40, color: NXColors.primary),
           ),
           const SizedBox(height: NXSpace.s20),
           Text(
             title,
-            style: NXText.cardTitle(context).copyWith(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-            ),
+            style: NXText.cardTitle(context)
+                .copyWith(fontSize: 17, fontWeight: FontWeight.w600),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: NXSpace.s8),
@@ -59,7 +55,8 @@ class NPhotosEmptyState extends StatelessWidget {
               child: Text(
                 subtitle!,
                 textAlign: TextAlign.center,
-                style: NXText.metadata(context).copyWith(color: palette.textBody),
+                style: NXText.metadata(context)
+                    .copyWith(color: palette.textBody),
               ),
             ),
           ],
@@ -91,7 +88,10 @@ class NPhotosLoadingState extends StatelessWidget {
           child: CircularProgressIndicator(strokeWidth: 2.5),
         ),
         const SizedBox(height: NXSpace.s20),
-        Text(label, style: NXText.muted(context).copyWith(color: palette.textBody)),
+        Text(
+          label,
+          style: NXText.muted(context).copyWith(color: palette.textBody),
+        ),
       ],
     );
   }

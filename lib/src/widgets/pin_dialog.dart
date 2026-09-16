@@ -36,10 +36,7 @@ class _PinDialogState extends State<_PinDialog> {
         obscureText: true,
         keyboardType: TextInputType.number,
         maxLength: 6,
-        decoration: const InputDecoration(
-          hintText: 'PIN',
-          counterText: '',
-        ),
+        decoration: const InputDecoration(hintText: 'PIN', counterText: ''),
       ),
       actions: [
         TextButton(

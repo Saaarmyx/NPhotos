@@ -32,8 +32,7 @@ final class NexoraPalette extends ThemeExtension<NexoraPalette> {
   final Color placeholderB;
 
   static NexoraPalette of(BuildContext context) =>
-      Theme.of(context).extension<NexoraPalette>() ??
-      NexoraPalette.dark;
+      Theme.of(context).extension<NexoraPalette>() ?? NexoraPalette.dark;
 
   static const dark = NexoraPalette(
     background: NXColors.darkBg,
@@ -226,12 +225,14 @@ abstract final class NXTransition {
 /// Elevaciones sutiles (sin sombras exageradas).
 abstract final class NXShadow {
   static List<BoxShadow> neutral(ThemeData theme) => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: theme.brightness == Brightness.dark ? 0.28 : 0.10),
-          blurRadius: 24,
-          offset: const Offset(0, 8),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(
+        alpha: theme.brightness == Brightness.dark ? 0.28 : 0.10,
+      ),
+      blurRadius: 24,
+      offset: const Offset(0, 8),
+    ),
+  ];
 }
 
 /// Jerarquía tipográfica NEXORA (Inter).
@@ -239,51 +240,37 @@ abstract final class NXText {
   static const String family = 'Inter';
 
   // NPhotos — 24–32 semibold
-  static TextStyle display(BuildContext context) =>
-      _style(context).displayLarge!.copyWith(
-            fontSize: 30,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.5,
-          );
+  static TextStyle display(BuildContext context) => _style(context)
+      .displayLarge!
+      .copyWith(fontSize: 30, fontWeight: FontWeight.w600, letterSpacing: -0.5);
 
   // Título de sección — 20–24 semibold
-  static TextStyle sectionTitle(BuildContext context) =>
-      _style(context).headlineSmall!.copyWith(
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.3,
-          );
+  static TextStyle sectionTitle(BuildContext context) => _style(context)
+      .headlineSmall!
+      .copyWith(fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.3);
 
   // Subtítulo — 15–16 medium
   static TextStyle cardTitle(BuildContext context) =>
-      _style(context).titleMedium!.copyWith(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-          );
+      _style(context).titleMedium!
+          .copyWith(fontSize: 15, fontWeight: FontWeight.w500);
 
   // Nombre de álbum — 13–15 medium
   static TextStyle albumName(BuildContext context) =>
-      _style(context).titleSmall!.copyWith(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          );
+      _style(context).titleSmall!
+          .copyWith(fontSize: 14, fontWeight: FontWeight.w500);
 
   // Metadata — 11–13 regular
   static TextStyle metadata(BuildContext context) =>
-      _style(context).bodySmall!.copyWith(
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            height: 1.35,
-          );
+      _style(context).bodySmall!
+          .copyWith(fontSize: 12, fontWeight: FontWeight.w400, height: 1.35);
 
-  static TextStyle muted(BuildContext context) =>
-      _style(context).bodySmall!.copyWith(
-            fontSize: 11,
-            fontWeight: FontWeight.w400,
-            height: 1.3,
-            letterSpacing: 0.1,
-          );
+  static TextStyle muted(BuildContext context) => _style(context).bodySmall!
+      .copyWith(
+        fontSize: 11,
+        fontWeight: FontWeight.w400,
+        height: 1.3,
+        letterSpacing: 0.1,
+      );
 
-  static TextTheme _style(BuildContext context) =>
-      Theme.of(context).textTheme;
+  static TextTheme _style(BuildContext context) => Theme.of(context).textTheme;
 }

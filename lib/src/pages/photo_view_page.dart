@@ -96,9 +96,8 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
     if (album != null) {
       await controller.addToAlbum(album.id, [_photo.path]);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Added to album')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Added to album')));
       }
       widget.onChanged?.call();
     }
@@ -144,9 +143,8 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
     }
     widget.onChanged?.call();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Moved to Trash')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Moved to Trash')));
     }
   }
 
@@ -169,9 +167,9 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
     }
     widget.onChanged?.call();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Moved to Secure Folder')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Moved to Secure Folder')));
     }
   }
 
@@ -204,36 +202,6 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
     _transform.value = Matrix4.identity();
   }
 
-  void _next() {
-    if (_index < widget.photos.length - 1) {
-      setState(() {
-        _index++;
-        _rotation = 0;
-        _zoom = 1;
-      });
-      _resetTransform();
-      _controller.nextPage(
-        duration: NXTransition.slow,
-        curve: NXTransition.accent,
-      );
-    }
-  }
-
-  void _previous() {
-    if (_index > 0) {
-      setState(() {
-        _index--;
-        _rotation = 0;
-        _zoom = 1;
-      });
-      _resetTransform();
-      _controller.previousPage(
-        duration: NXTransition.slow,
-        curve: NXTransition.accent,
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final photo = _photo;
@@ -252,12 +220,10 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
             }),
             itemBuilder: (context, index) {
               final p = widget.photos[index];
-              return Center(
-                child: _zoomable(p),
-              );
+              return Center(child: _zoomable(p));
             },
           ),
-          // Barra superior
+          // Barra superior sólida (no superpuesta sobre la imagen)
           AnimatedSlide(
             duration: NXTransition.base,
             curve: NXTransition.easeOut,
@@ -271,37 +237,12 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
               onInfo: () => _showInfo(context, photo),
             ),
           ),
-          // Controles de navegación laterales
-          if (_barVisible)
-            Positioned.fill(
-              child: IgnorePointer(
-                ignoring: true,
-                child: AnimatedOpacity(
-                  duration: NXTransition.base,
-                  opacity: _barVisible ? 1 : 0,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _NavButton(
-                        icon: Icons.chevron_left_rounded,
-                        onPressed: _index > 0 ? _previous : null,
-                      ),
-                      _NavButton(
-                        icon: Icons.chevron_right_rounded,
-                        onPressed: _index < widget.photos.length - 1 ? _next : null,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          // Barra inferior de acciones (concepto de UI)
+          // Barra inferior sólida de acciones
           AnimatedSlide(
             duration: NXTransition.base,
             curve: NXTransition.easeOut,
             offset: _barVisible ? Offset.zero : const Offset(0, 1),
             child: _ViewerBottomBar(
-              photo: photo,
               onRotate: _rotate,
               onAddToAlbum: _addToAlbum,
               onSecure: _moveToSecure,
@@ -350,9 +291,8 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
     final sizeMb = (photo.sizeBytes.toDouble() / 1048576).toStringAsFixed(2);
     final date = photo.takenAt == null
         ? 'Unknown'
-        : DateFormat('dd MMM yyyy HH:mm').format(
-            DateTime.tryParse(photo.takenAt!) ?? DateTime.now(),
-          );
+        : DateFormat('dd MMM yyyy HH:mm')
+              .format(DateTime.tryParse(photo.takenAt!) ?? DateTime.now());
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -364,7 +304,10 @@ class _PhotoViewPageState extends State<PhotoViewPage> {
           children: [
             _InfoRow(label: 'Name', value: photo.name),
             _InfoRow(label: 'Size', value: '$sizeMb MB'),
-            _InfoRow(label: 'Dimensions', value: '${photo.width} × ${photo.height}'),
+            _InfoRow(
+              label: 'Dimensions',
+              value: '${photo.width} × ${photo.height}',
+            ),
             _InfoRow(label: 'Taken', value: date),
             _InfoRow(label: 'Path', value: photo.path),
           ],
@@ -402,13 +345,16 @@ class _ViewerTopBar extends StatelessWidget {
     return Align(
       alignment: Alignment.topCenter,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(NXSpace.s16, NXSpace.s12, NXSpace.s16, NXSpace.s12),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xE6050507), Color(0x00050507)],
-          ),
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(
+          NXSpace.s16,
+          NXSpace.s10,
+          NXSpace.s16,
+          NXSpace.s10,
+        ),
+        decoration: const BoxDecoration(
+          color: Color(0xFF0B0B0E),
+          border: Border(bottom: BorderSide(color: Color(0x1AFFFFFF))),
         ),
         child: SafeArea(
           bottom: false,
@@ -428,7 +374,8 @@ class _ViewerTopBar extends StatelessWidget {
                       photo.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: NXText.albumName(context).copyWith(color: Colors.white),
+                      style: NXText.albumName(context)
+                          .copyWith(color: Colors.white),
                     ),
                     Text(
                       '$index of $total',
@@ -442,7 +389,9 @@ class _ViewerTopBar extends StatelessWidget {
                 icon: photo.isFavorite
                     ? Icons.favorite_rounded
                     : Icons.favorite_border_rounded,
-                tooltip: photo.isFavorite ? 'Remove from favorites' : 'Favorite',
+                tooltip: photo.isFavorite
+                    ? 'Remove from favorites'
+                    : 'Favorite',
                 onPressed: onFavorite,
                 highlighted: photo.isFavorite,
               ),
@@ -462,7 +411,6 @@ class _ViewerTopBar extends StatelessWidget {
 
 class _ViewerBottomBar extends StatelessWidget {
   const _ViewerBottomBar({
-    required this.photo,
     required this.onRotate,
     required this.onAddToAlbum,
     required this.onSecure,
@@ -470,7 +418,6 @@ class _ViewerBottomBar extends StatelessWidget {
     required this.onTrash,
   });
 
-  final Photo photo;
   final VoidCallback onRotate;
   final VoidCallback onAddToAlbum;
   final VoidCallback onSecure;
@@ -479,36 +426,25 @@ class _ViewerBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sizeMb = (photo.sizeBytes.toDouble() / 1048576).toStringAsFixed(2);
-    final date = photo.takenAt == null
-        ? 'Sin fecha'
-        : DateFormat('dd MMM yyyy HH:mm').format(
-            DateTime.tryParse(photo.takenAt!) ?? DateTime.now(),
-          );
     return Align(
       alignment: Alignment.bottomCenter,
       child: Container(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [Color(0xE6050507), Color(0x00050507)],
-          ),
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          color: Color(0xFF0B0B0E),
+          border: Border(top: BorderSide(color: Color(0x1AFFFFFF))),
         ),
-        padding: const EdgeInsets.fromLTRB(NXSpace.s24, NXSpace.s28, NXSpace.s24, NXSpace.s24),
+        padding: const EdgeInsets.fromLTRB(
+          NXSpace.s24,
+          NXSpace.s8,
+          NXSpace.s24,
+          NXSpace.s8,
+        ),
         child: SafeArea(
           top: false,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                '${photo.width}×${photo.height}  •  $sizeMb MB  •  $date',
-                style: NXText.muted(context)
-                    .copyWith(color: Colors.white.withValues(alpha: 0.75)),
-              ),
-              const SizedBox(width: NXSpace.s20),
-              const SizedBox(width: 1, height: 24),
-              const SizedBox(width: NXSpace.s20),
               _ViewerIcon(
                 icon: Icons.rotate_90_degrees_ccw_outlined,
                 tooltip: 'Rotate 90°',
@@ -563,8 +499,8 @@ class _ViewerIcon extends StatelessWidget {
     final color = danger
         ? NXColors.primary
         : highlighted
-            ? NXColors.primary
-            : Colors.white.withValues(alpha: 0.9);
+        ? NXColors.primary
+        : Colors.white.withValues(alpha: 0.9);
     final child = MouseRegion(
       cursor: SystemMouseCursors.click,
       child: Tooltip(
@@ -585,33 +521,6 @@ class _ViewerIcon extends StatelessWidget {
       ),
     );
     return child;
-  }
-}
-
-class _NavButton extends StatelessWidget {
-  const _NavButton({required this.icon, this.onPressed});
-
-  final IconData icon;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-        ),
-        child: IconButton(
-          icon: Icon(icon, size: 22, color: Colors.white),
-          onPressed: onPressed,
-          hoverColor: Colors.white.withValues(alpha: 0.1),
-        ),
-      ),
-    );
   }
 }
 
@@ -637,7 +546,11 @@ class _InfoRow extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Text(value, style: NXText.metadata(context).copyWith(color: palette.textSecondary)),
+            child: Text(
+              value,
+              style: NXText.metadata(context)
+                  .copyWith(color: palette.textSecondary),
+            ),
           ),
         ],
       ),

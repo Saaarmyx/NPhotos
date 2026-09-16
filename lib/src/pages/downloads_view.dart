@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../design/nexora_tokens.dart';
 import '../../widgets/nphotos_empty_state.dart';
-import '../../widgets/section_header.dart';
 import '../core.dart';
-import '../rust/api.dart';
 import '../widgets/photo_grid.dart';
 
-/// Vista "Downloads": fotos localizadas dentro de la carpeta Downloads.
+/// Vista "Downloads": fotos dentro de la carpeta Downloads.
 class DownloadsView extends StatefulWidget {
   const DownloadsView({super.key});
 
@@ -15,11 +12,7 @@ class DownloadsView extends StatefulWidget {
   State<DownloadsView> createState() => _DownloadsViewState();
 }
 
-class _DownloadsViewState extends State<DownloadsView>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
+class _DownloadsViewState extends State<DownloadsView> {
   @override
   void initState() {
     super.initState();
@@ -32,75 +25,50 @@ class _DownloadsViewState extends State<DownloadsView>
     });
   }
 
-  bool _isDownload(Photo p) {
-    final path = p.path.toLowerCase();
-    return path.contains('/downloads/') || path.contains('\\downloads\\');
-  }
-
   @override
   Widget build(BuildContext context) {
-    super.build(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: NXSpace.s20),
-          child: FutureBuilder<StoreController>(
-            future: StoreController.instance(),
-            builder: (context, snapshot) {
-              final controller = snapshot.data;
-              final count =
-                  controller == null ? 0 : controller.photos.where(_isDownload).length;
-              return SectionHeader(
-                title: 'Downloads',
-                subtitle: '$count ${count == 1 ? 'file' : 'files'} in Downloads',
-                padding: const EdgeInsets.fromLTRB(
-                  NXSpace.s24,
-                  0,
-                  NXSpace.s24,
-                  NXSpace.s16,
-                ),
+    return FutureBuilder<StoreController>(
+      future: StoreController.instance(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final controller = snapshot.data!;
+        if (controller.photos.isEmpty) {
+          return NPhotosEmptyState(
+            icon: Icons.download_outlined,
+            title: 'No photos in your archive',
+            subtitle: 'Scan your library first to find downloads.',
+          );
+        }
+        final downloads = controller.photos.where(downloadedOf).toList();
+        if (downloads.isEmpty) {
+          return NPhotosEmptyState(
+            icon: Icons.download_outlined,
+            title: 'No downloads folder yet',
+            subtitle: 'Photos you download on this device will appear here.',
+          );
+        }
+        return ValueListenableBuilder<String>(
+          valueListenable: globalSearchQuery,
+          builder: (context, query, _) {
+            final visible = filterPhotosByName(downloads, query);
+            if (visible.isEmpty && query.trim().isNotEmpty) {
+              return NPhotosEmptyState(
+                icon: Icons.search_off_rounded,
+                title: 'No results',
+                subtitle: 'Nothing matches "$query".',
               );
-            },
-          ),
-        ),
-        Expanded(
-          child: FutureBuilder<StoreController>(
-            future: StoreController.instance(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final downloads =
-                  snapshot.data!.photos.where(_isDownload).toList();
-              if (downloads.isEmpty) {
-                return NPhotosEmptyState(
-                  icon: Icons.download_outlined,
-                  title: 'No downloads folder yet',
-                  subtitle: 'Photos you download on this device will appear here.',
-                );
-              }
-              return ValueListenableBuilder<String>(
-                valueListenable: globalSearchQuery,
-                builder: (context, query, _) {
-                  final q = query.trim().toLowerCase();
-                  final visible = q.isEmpty
-                      ? downloads
-                      : downloads
-                          .where((p) => p.name.toLowerCase().contains(q))
-                          .toList();
-                  return ThumbnailGrid(
-                    photos: visible,
-                    onChanged: () {
-                      if (mounted) setState(() {});
-                    },
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ],
+            }
+            return ThumbnailGrid(
+              photos: visible,
+              onChanged: () {
+                if (mounted) setState(() {});
+              },
+            );
+          },
+        );
+      },
     );
   }
 }

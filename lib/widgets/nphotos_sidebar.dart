@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../design/nexora_tokens.dart';
-import '../src/rust/api.dart';
 
 enum NPhotoSection {
   photos('Photos', Icons.photo_library_outlined),
-  recentlyAdded('Recently Added', Icons.schedule_outlined),
   albums('Albums', Icons.collections_bookmark_outlined),
   favorites('Favorites', Icons.favorite_border_rounded),
   videos('Videos', Icons.movie_outlined),
@@ -23,19 +21,15 @@ enum NPhotoSection {
 class NPhotosSidebar extends StatefulWidget {
   const NPhotosSidebar({
     super.key,
-    required this.sections,
     required this.current,
     required this.onSectionSelected,
-    required this.albums,
-    this.onAlbumTap,
+    this.photoCount = 0,
     this.width = 240,
   });
 
-  final List<NPhotoSection> sections;
   final NPhotoSection current;
   final ValueChanged<NPhotoSection> onSectionSelected;
-  final List<Album> albums;
-  final ValueChanged<Album>? onAlbumTap;
+  final int photoCount;
   final double width;
 
   @override
@@ -49,11 +43,10 @@ class _NPhotosSidebarState extends State<NPhotosSidebar> {
 
     final librarySections = <NPhotoSection>[
       NPhotoSection.photos,
-      NPhotoSection.albums,
       NPhotoSection.favorites,
-      NPhotoSection.recentlyAdded,
+      NPhotoSection.albums,
     ];
-    final photosSections = <NPhotoSection>[
+    final mediaSections = <NPhotoSection>[
       NPhotoSection.videos,
       NPhotoSection.screenshots,
       NPhotoSection.downloads,
@@ -68,9 +61,7 @@ class _NPhotosSidebarState extends State<NPhotosSidebar> {
       width: widget.width,
       decoration: BoxDecoration(
         color: palette.surface,
-        border: Border(
-          right: BorderSide(color: palette.border),
-        ),
+        border: Border(right: BorderSide(color: palette.border)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,24 +80,14 @@ class _NPhotosSidebarState extends State<NPhotosSidebar> {
                     onTap: () => widget.onSectionSelected(s),
                   ),
                 const SizedBox(height: NXSpace.s16),
-                _SectionLabel('NPHOTOS'),
-                for (final s in photosSections)
+                _SectionLabel('MEDIA'),
+                for (final s in mediaSections)
                   _SidebarItem(
                     icon: s.icon,
                     label: s.title,
                     selected: widget.current == s,
                     onTap: () => widget.onSectionSelected(s),
                   ),
-                if (widget.albums.isNotEmpty) ...[
-                  const SizedBox(height: NXSpace.s16),
-                  _SectionLabel('ALBUMS'),
-                  for (final album in widget.albums)
-                    _AlbumSidebarItem(
-                      album: album,
-                      selected: false,
-                      onTap: () => widget.onAlbumTap?.call(album),
-                    ),
-                ],
                 const SizedBox(height: NXSpace.s16),
                 _SectionLabel('SYSTEM'),
                 for (final s in systemSections)
@@ -119,13 +100,12 @@ class _NPhotosSidebarState extends State<NPhotosSidebar> {
               ],
             ),
           ),
-          const _SidebarFooter(),
+          _SidebarFooter(photoCount: widget.photoCount),
         ],
       ),
     );
   }
-
-  }
+}
 
 class _NPhotosBrand extends StatelessWidget {
   const _NPhotosBrand();
@@ -153,7 +133,11 @@ class _NPhotosBrand extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(NXRadius.radius10),
             ),
-            child: const Icon(Icons.photo_camera_back_rounded, size: 17, color: Colors.white),
+            child: const Icon(
+              Icons.photo_camera_back_rounded,
+              size: 17,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(width: NXSpace.s12),
           Column(
@@ -196,10 +180,8 @@ class _SectionLabel extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: NXText.muted(context).copyWith(
-          color: palette.textMuted,
-          letterSpacing: 1.6,
-        ),
+        style: NXText.muted(context)
+            .copyWith(color: palette.textMuted, letterSpacing: 1.6),
       ),
     );
   }
@@ -231,8 +213,8 @@ class _SidebarItemState extends State<_SidebarItem> {
     final background = widget.selected
         ? palette.active
         : _hovered
-            ? palette.hover
-            : Colors.transparent;
+        ? palette.hover
+        : Colors.transparent;
 
     final item = MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -266,7 +248,9 @@ class _SidebarItemState extends State<_SidebarItem> {
               Icon(
                 widget.icon,
                 size: 17,
-                color: widget.selected ? NXColors.primary : palette.textSecondary,
+                color: widget.selected
+                    ? NXColors.primary
+                    : palette.textSecondary,
               ),
               const SizedBox(width: NXSpace.s10),
               Expanded(
@@ -278,7 +262,9 @@ class _SidebarItemState extends State<_SidebarItem> {
                     color: widget.selected
                         ? palette.textPrimary
                         : palette.textSecondary,
-                    fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w500,
+                    fontWeight: widget.selected
+                        ? FontWeight.w600
+                        : FontWeight.w500,
                   ),
                 ),
               ),
@@ -295,71 +281,10 @@ class _SidebarItemState extends State<_SidebarItem> {
   }
 }
 
-class _AlbumSidebarItem extends StatefulWidget {
-  const _AlbumSidebarItem({
-    required this.album,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final Album album;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  State<_AlbumSidebarItem> createState() => _AlbumSidebarItemState();
-}
-
-class _AlbumSidebarItemState extends State<_AlbumSidebarItem> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = NexoraPalette.of(context);
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: NXTransition.base,
-          curve: NXTransition.easeOut,
-          margin: const EdgeInsets.symmetric(horizontal: NXSpace.s10),
-          padding: const EdgeInsets.symmetric(horizontal: NXSpace.s12),
-          height: 36,
-          decoration: BoxDecoration(
-            color: _hovered ? palette.hover : Colors.transparent,
-            borderRadius: BorderRadius.circular(NXRadius.radius8),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.folder_outlined,
-                size: 16,
-                color: NXColors.primary,
-              ),
-              const SizedBox(width: NXSpace.s10),
-              Expanded(
-                child: Text(
-                  widget.album.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: NXText.albumName(context).copyWith(
-                    color: palette.textSecondary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _SidebarFooter extends StatelessWidget {
-  const _SidebarFooter();
+  const _SidebarFooter({required this.photoCount});
+
+  final int photoCount;
 
   @override
   Widget build(BuildContext context) {
@@ -371,10 +296,14 @@ class _SidebarFooter extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.cloud_outlined, size: 16, color: palette.textMuted),
+          Icon(
+            Icons.photo_library_outlined,
+            size: 16,
+            color: palette.textMuted,
+          ),
           const SizedBox(width: NXSpace.s8),
           Text(
-            'Local library',
+            '$photoCount ${photoCount == 1 ? 'photo' : 'photos'} · local',
             style: NXText.muted(context).copyWith(color: palette.textMuted),
           ),
         ],

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../design/nexora_tokens.dart';
+import '../../widgets/nphotos_button.dart';
 import '../../widgets/nphotos_empty_state.dart';
-import '../../widgets/section_header.dart';
 import '../core.dart';
 import '../rust/api.dart';
 import '../widgets/pin_dialog.dart';
@@ -19,7 +19,6 @@ class _SecureFolderPageState extends State<SecureFolderPage>
     with AutomaticKeepAliveClientMixin {
   bool? _pinSet;
   bool _unlocked = false;
-  List<MovedEntry> _items = const [];
   bool _loading = false;
 
   @override
@@ -37,15 +36,13 @@ class _SecureFolderPageState extends State<SecureFolderPage>
     if (!mounted) return;
     setState(() => _pinSet = pinSet);
     if (!pinSet) return;
-    final pin = await showPinDialog(context, title: 'Desbloquear carpeta segura');
-    if (!mounted) return;
-    if (pin == null) return;
+    final pin = await showPinDialog(context, title: 'Unlock Secure Folder');
+    if (!mounted || pin == null) return;
     final ok = await controller.verifyPin(pin);
     if (!mounted) return;
     if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PIN incorrecto')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Incorrect PIN')));
       return;
     }
     setState(() => _unlocked = true);
@@ -55,24 +52,19 @@ class _SecureFolderPageState extends State<SecureFolderPage>
   Future<void> _load() async {
     setState(() => _loading = true);
     final controller = await StoreController.instance();
-    final items = await controller.listSecure();
-    if (!mounted) return;
-    setState(() {
-      _items = items;
-      _loading = false;
-    });
+    await controller.refreshSecure();
+    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _setupPin() async {
-    final first = await showPinDialog(context, title: 'Crear PIN');
+    final first = await showPinDialog(context, title: 'Create PIN');
     if (first == null || !mounted) return;
-    final second = await showPinDialog(context, title: 'Repite el PIN');
+    final second = await showPinDialog(context, title: 'Repeat the PIN');
     if (second == null || !mounted) return;
     if (first != second) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Los PIN no coinciden')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Pins do not match')));
       }
       return;
     }
@@ -90,37 +82,34 @@ class _SecureFolderPageState extends State<SecureFolderPage>
   Future<void> _changePin() async {
     final controller = await StoreController.instance();
     if (!mounted) return;
-    final current = await showPinDialog(context, title: 'PIN actual');
+    final current = await showPinDialog(context, title: 'Current PIN');
     if (current == null || !mounted) return;
     if (!await controller.verifyPin(current)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PIN incorrecto')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Incorrect PIN')));
       }
       return;
     }
     if (!mounted) return;
-    final next = await showPinDialog(context, title: 'Nuevo PIN');
+    final next = await showPinDialog(context, title: 'New PIN');
     if (next == null || !mounted) return;
     await controller.setPin(next);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PIN actualizado')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('PIN updated')));
     }
   }
 
   Future<void> _clearPin() async {
     final controller = await StoreController.instance();
     if (!mounted) return;
-    final current = await showPinDialog(context, title: 'PIN actual');
+    final current = await showPinDialog(context, title: 'Current PIN');
     if (current == null) return;
     if (!await controller.verifyPin(current)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PIN incorrecto')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Incorrect PIN')));
       }
       return;
     }
@@ -136,12 +125,10 @@ class _SecureFolderPageState extends State<SecureFolderPage>
   Future<void> _restore(MovedEntry entry) async {
     final controller = await StoreController.instance();
     await controller.restoreSecure(entry);
-    await controller.rescan();
-    await _load();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Restored to your library')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Restored to your library')));
     }
   }
 
@@ -159,9 +146,7 @@ class _SecureFolderPageState extends State<SecureFolderPage>
             child: const Text('Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: NXColors.primary,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: NXColors.primary),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Delete'),
           ),
@@ -170,53 +155,11 @@ class _SecureFolderPageState extends State<SecureFolderPage>
     );
     if (confirmed != true) return;
     await controller.deleteSecureItem(entry);
-    await _load();
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: NXSpace.s20),
-          child: SectionHeader(
-            title: 'Secure Folder',
-            subtitle: _pinSet == true && _unlocked
-                ? '${_items.length} ${_items.length == 1 ? 'item' : 'items'} protected'
-                : _pinSet == true
-                    ? 'Locked with a PIN'
-                    : 'Protect photos with a PIN',
-            padding: const EdgeInsets.fromLTRB(
-              NXSpace.s24,
-              0,
-              NXSpace.s24,
-              NXSpace.s16,
-            ),
-            trailing: _pinSet == true
-                ? PopupMenuButton<String>(
-                    color: NexoraPalette.of(context).elevated,
-                    surfaceTintColor: Colors.transparent,
-                    icon: const Icon(Icons.more_horiz_rounded),
-                    onSelected: (value) {
-                      if (value == 'change') _changePin();
-                      if (value == 'clear') _clearPin();
-                    },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'change', child: Text('Cambiar PIN')),
-                      PopupMenuItem(value: 'clear', child: Text('Desactivar PIN')),
-                    ],
-                  )
-                : null,
-          ),
-        ),
-        Expanded(child: _buildBody()),
-      ],
-    );
-  }
-
-  Widget _buildBody() {
     if (_pinSet == null) {
       return const NPhotosLoadingState();
     }
@@ -224,8 +167,7 @@ class _SecureFolderPageState extends State<SecureFolderPage>
       return NPhotosEmptyState(
         icon: Icons.lock_outline_rounded,
         title: 'Protect with a PIN',
-        subtitle:
-            'Move private photos here so only you (with your PIN) can see them.',
+        subtitle: 'Move private photos here so only you (with your PIN) can see them.',
         actionLabel: 'Set up PIN',
         onAction: _setupPin,
       );
@@ -234,33 +176,83 @@ class _SecureFolderPageState extends State<SecureFolderPage>
       return NPhotosEmptyState(
         icon: Icons.lock_outline_rounded,
         title: 'Secure Folder locked',
-        subtitle: 'Reopen the section and enter your PIN to unlock it.',
+        subtitle: 'Tap Unlock and enter your PIN to see your protected photos.',
+        actionLabel: 'Unlock',
+        onAction: _bootstrap,
       );
     }
-    if (_loading) {
-      return const NPhotosLoadingState();
-    }
-    if (_items.isEmpty) {
-      return NPhotosEmptyState(
-        icon: Icons.lock_outline_rounded,
-        title: 'Secure Folder is empty',
-        subtitle: 'Move photos here from Photos using the context menu.',
-      );
-    }
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(
-        NXSpace.s24,
-        NXSpace.s4,
-        NXSpace.s24,
-        NXSpace.s32,
-      ),
-      itemCount: _items.length,
-      separatorBuilder: (_, _) => const SizedBox(height: NXSpace.s8),
-      itemBuilder: (context, i) => TrashItemTile(
-        entry: _items[i],
-        onRestore: () => _restore(_items[i]),
-        onDeletePermanent: () => _delete(_items[i]),
-      ),
+    return FutureBuilder<StoreController>(
+      future: StoreController.instance(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const NPhotosLoadingState();
+        }
+        final controller = snapshot.data!;
+        return ListenableBuilder(
+          listenable: controller,
+          builder: (context, _) {
+            if (_loading && controller.secureItems.isEmpty) {
+              return const NPhotosLoadingState();
+            }
+            final items = controller.secureItems;
+            if (items.isEmpty) {
+              return NPhotosEmptyState(
+                icon: Icons.lock_outline_rounded,
+                title: 'Secure Folder is empty',
+                subtitle:
+                    'Move photos here from Photos using the context menu.',
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    NXSpace.s24,
+                    NXSpace.s12,
+                    NXSpace.s24,
+                    NXSpace.s8,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      NPhotosButton.ghost(
+                        label: 'Change PIN',
+                        icon: Icons.password_rounded,
+                        onPressed: _changePin,
+                      ),
+                      const SizedBox(width: NXSpace.s8),
+                      NPhotosButton.secondary(
+                        label: 'Disable PIN',
+                        icon: Icons.lock_open_outlined,
+                        onPressed: _clearPin,
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(
+                      NXSpace.s24,
+                      NXSpace.s4,
+                      NXSpace.s24,
+                      NXSpace.s32,
+                    ),
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: NXSpace.s8),
+                    itemBuilder: (context, i) => TrashItemTile(
+                      entry: items[i],
+                      onRestore: () => _restore(items[i]),
+                      onDeletePermanent: () => _delete(items[i]),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

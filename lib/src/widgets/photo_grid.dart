@@ -49,19 +49,21 @@ class ThumbnailGrid extends StatelessWidget {
   Map<String, List<Photo>> _groups() {
     final map = <String, List<Photo>>{};
     for (final photo in photos) {
-      final key = switch (groupBy) {
-        PhotoGroupBy.year => DateTime.tryParse(photo.takenAt ?? '')?.year.toString(),
-        PhotoGroupBy.month => DateTime.tryParse(photo.takenAt ?? '')
-            ?.toIso8601String()
-            .substring(0, 7),
-        PhotoGroupBy.none => null,
-      } ?? 'sin_fecha';
+      final key =
+          switch (groupBy) {
+            PhotoGroupBy.year => DateTime.tryParse(
+              photo.takenAt ?? '',
+            )?.year.toString(),
+            PhotoGroupBy.month => DateTime.tryParse(
+              photo.takenAt ?? '',
+            )?.toIso8601String().substring(0, 7),
+            PhotoGroupBy.none => null,
+          } ??
+          'sin_fecha';
       map.putIfAbsent(key, () => []).add(photo);
     }
     // orden descendente (más reciente primero); 'sin_fecha' al final
-    final sorted = map.keys
-        .where((k) => k != 'sin_fecha')
-        .toList()
+    final sorted = map.keys.where((k) => k != 'sin_fecha').toList()
       ..sort((a, b) => b.compareTo(a));
     if (map.containsKey('sin_fecha')) sorted.add('sin_fecha');
     return {for (final k in sorted) k: map[k]!};
@@ -80,18 +82,21 @@ class ThumbnailGrid extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(NXSpace.s4, NXSpace.s12, NXSpace.s4, NXSpace.s10),
+              padding: const EdgeInsets.fromLTRB(
+                NXSpace.s4,
+                NXSpace.s12,
+                NXSpace.s4,
+                NXSpace.s10,
+              ),
               child: Text(
                 key == 'sin_fecha'
                     ? 'Sin fecha'
                     : (groupBy == PhotoGroupBy.year
-                        ? key
-                        : DateFormat('MMMM yyyy').format(
-                            DateTime.tryParse('$key-02')!,
-                          )),
-                style: NXText.cardTitle(context).copyWith(
-                  color: NexoraPalette.of(context).textSecondary,
-                ),
+                          ? key
+                          : DateFormat('MMMM yyyy')
+                                .format(DateTime.tryParse('$key-02')!)),
+                style: NXText.cardTitle(context)
+                    .copyWith(color: NexoraPalette.of(context).textSecondary),
               ),
             ),
             _grid(context, groupPhotos),
@@ -177,16 +182,13 @@ class ThumbnailGrid extends StatelessWidget {
           children: [
             for (final e in options.entries)
               ListTile(
-                leading: Icon(
-                  switch (e.key) {
-                    'fav' => Icons.favorite_border_rounded,
-                    'album' => Icons.photo_library_outlined,
-                    'secure' => Icons.lock_outline_rounded,
-                    'hide' => Icons.visibility_off_outlined,
-                    _ => Icons.playlist_remove_rounded,
-                  },
-                  size: 20,
-                ),
+                leading: Icon(switch (e.key) {
+                  'fav' => Icons.favorite_border_rounded,
+                  'album' => Icons.photo_library_outlined,
+                  'secure' => Icons.lock_outline_rounded,
+                  'hide' => Icons.visibility_off_outlined,
+                  _ => Icons.playlist_remove_rounded,
+                }, size: 20),
                 title: Text(e.value),
                 onTap: () => Navigator.pop(context, e.key),
               ),
@@ -243,11 +245,13 @@ class ThumbnailGrid extends StatelessWidget {
     }
   }
 
-  static Future<String?> _askAlbumName(BuildContext context, {String? initial}) =>
-      showDialog<String>(
-        context: context,
-        builder: (context) => _NameDialog(title: 'Nuevo álbum', initial: initial),
-      );
+  static Future<String?> _askAlbumName(
+    BuildContext context, {
+    String? initial,
+  }) => showDialog<String>(
+    context: context,
+    builder: (context) => _NameDialog(title: 'Nuevo álbum', initial: initial),
+  );
 }
 
 class NPhotosGridEmpty extends StatelessWidget {
@@ -258,9 +262,8 @@ class NPhotosGridEmpty extends StatelessWidget {
     return Center(
       child: Text(
         'No hay fotos aún',
-        style: NXText.metadata(context).copyWith(
-          color: NexoraPalette.of(context).textBody,
-        ),
+        style: NXText.metadata(context)
+            .copyWith(color: NexoraPalette.of(context).textBody),
       ),
     );
   }
@@ -277,8 +280,9 @@ class _NameDialog extends StatefulWidget {
 }
 
 class _NameDialogState extends State<_NameDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initial);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initial,
+  );
 
   @override
   void dispose() {

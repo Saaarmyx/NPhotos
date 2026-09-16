@@ -163,11 +163,9 @@ class _NPhotosIconButtonState extends State<NPhotosIconButton> {
     final background = widget.active
         ? NXColors.red20
         : _hovered
-            ? palette.hover
-            : Colors.transparent;
-    final foreground = widget.active
-        ? NXColors.primary
-        : palette.textPrimary;
+        ? palette.hover
+        : Colors.transparent;
+    final foreground = widget.active ? NXColors.primary : palette.textPrimary;
 
     final button = MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,

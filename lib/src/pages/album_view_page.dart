@@ -36,8 +36,9 @@ class _AlbumViewPageState extends State<AlbumViewPage> {
     final controller = await StoreController.instance();
     if (!mounted) return;
     final currentPaths = widget.album.photoPaths.toSet();
-    final candidates =
-        controller.photos.where((p) => !currentPaths.contains(p.path)).toList();
+    final candidates = controller.photos
+        .where((p) => !currentPaths.contains(p.path))
+        .toList();
     if (candidates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -107,10 +108,9 @@ class _AlbumViewPageState extends State<AlbumViewPage> {
                   showFavoriteBadge: false,
                   onRemoveRequest: (photo) async {
                     final controller = await StoreController.instance();
-                    await controller.removeFromAlbum(
-                      widget.album.id,
-                      [photo.path],
-                    );
+                    await controller.removeFromAlbum(widget.album.id, [
+                      photo.path,
+                    ]);
                     widget.album.photoPaths.remove(photo.path);
                     if (mounted) setState(() => _photos = _load());
                   },
@@ -175,7 +175,10 @@ class _PickPhotosDialogState extends State<_PickPhotosDialog> {
                   if (isSelected)
                     Container(
                       color: Colors.black45,
-                      child: const Icon(Icons.check_circle, color: Colors.white),
+                      child: const Icon(
+                        Icons.check_circle,
+                        color: Colors.white,
+                      ),
                     ),
                 ],
               ),

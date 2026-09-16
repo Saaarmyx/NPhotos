@@ -68,8 +68,8 @@ class _NPhotosSearchState extends State<NPhotosSearch> {
                 color: _focused
                     ? NXColors.primary.withValues(alpha: 0.7)
                     : _hovered
-                        ? palette.textMuted.withValues(alpha: 0.5)
-                        : palette.border,
+                    ? palette.textMuted.withValues(alpha: 0.5)
+                    : palette.border,
               ),
               boxShadow: _focused
                   ? [
@@ -176,7 +176,10 @@ class _ShortcutBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = NexoraPalette.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: NXSpace.s6, vertical: NXSpace.s2),
+      padding: const EdgeInsets.symmetric(
+        horizontal: NXSpace.s6,
+        vertical: NXSpace.s2,
+      ),
       decoration: BoxDecoration(
         color: palette.hover,
         borderRadius: BorderRadius.circular(NXRadius.radius6),

@@ -24,7 +24,8 @@ class TrashItemTile extends StatefulWidget {
 class _TrashItemTileState extends State<TrashItemTile> {
   @override
   Widget build(BuildContext context) {
-    final sizeMb = (widget.entry.sizeBytes.toDouble() / 1048576).toStringAsFixed(2);
+    final sizeMb = (widget.entry.sizeBytes.toDouble() / 1048576)
+        .toStringAsFixed(2);
     return Card(
       clipBehavior: Clip.antiAlias,
       child: ListTile(
@@ -36,9 +37,16 @@ class _TrashItemTileState extends State<TrashItemTile> {
             child: _Thumb(path: widget.entry.path),
           ),
         ),
-        title: Text(widget.entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text('$sizeMb MB\n${widget.entry.original}',
-            maxLines: 2, overflow: TextOverflow.ellipsis),
+        title: Text(
+          widget.entry.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          '$sizeMb MB\n${widget.entry.original}',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

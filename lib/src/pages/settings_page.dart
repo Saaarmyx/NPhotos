@@ -39,10 +39,7 @@ class _SettingsPageState extends State<SettingsPage> {
         NXSpace.s32,
       ),
       children: [
-        Text(
-          'Settings',
-          style: NXText.sectionTitle(context),
-        ),
+        Text('Settings', style: NXText.sectionTitle(context)),
         const SizedBox(height: NXSpace.s4),
         Text(
           'Appearance, security and storage',
@@ -82,12 +79,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ],
         ),
         const SizedBox(height: NXSpace.s16),
-        _SettingsGroup(
-          title: 'LIBRARY',
-          children: [
-            const _HiddenPhotosTile(),
-          ],
-        ),
+        _SettingsGroup(title: 'LIBRARY', children: [const _HiddenPhotosTile()]),
         const SizedBox(height: NXSpace.s16),
         _SettingsGroup(
           title: 'ABOUT',
@@ -136,7 +128,9 @@ class _ThemePicker extends StatelessWidget {
                     curve: NXTransition.easeOut,
                     padding: const EdgeInsets.symmetric(vertical: NXSpace.s10),
                     decoration: BoxDecoration(
-                      color: mode == value ? palette.active : Colors.transparent,
+                      color: mode == value
+                          ? palette.active
+                          : Colors.transparent,
                       borderRadius: BorderRadius.circular(NXRadius.radius12),
                     ),
                     child: Text(
@@ -175,7 +169,8 @@ class _SettingsGroup extends StatelessWidget {
           padding: const EdgeInsets.only(left: NXSpace.s4, bottom: NXSpace.s8),
           child: Text(
             title,
-            style: NXText.muted(context).copyWith(color: palette.textMuted, letterSpacing: 1.6),
+            style: NXText.muted(context)
+                .copyWith(color: palette.textMuted, letterSpacing: 1.6),
           ),
         ),
         Container(
@@ -298,8 +293,8 @@ class _HiddenPhotosTileState extends State<_HiddenPhotosTile> {
                           paths.isEmpty
                               ? 'Nothing hidden'
                               : '${paths.length} '
-                                  '${paths.length == 1 ? 'item' : 'items'} '
-                                  'hidden from the archive',
+                                    '${paths.length == 1 ? 'item' : 'items'} '
+                                    'hidden from the archive',
                           style: NXText.muted(context)
                               .copyWith(color: palette.textBody),
                         ),
@@ -335,7 +330,9 @@ class _HiddenPhotosTileState extends State<_HiddenPhotosTile> {
                       onPressed: () => _reveal(path),
                       icon: const Icon(Icons.visibility_outlined, size: 16),
                       label: const Text('Show'),
-                      style: TextButton.styleFrom(foregroundColor: NXColors.primary),
+                      style: TextButton.styleFrom(
+                        foregroundColor: NXColors.primary,
+                      ),
                     ),
                   ],
                 ),
@@ -381,13 +378,19 @@ class _SettingsTile extends StatelessWidget {
                     const SizedBox(height: NXSpace.s2),
                     Text(
                       subtitle!,
-                      style: NXText.muted(context).copyWith(color: palette.textBody),
+                      style: NXText.muted(context)
+                          .copyWith(color: palette.textBody),
                     ),
                   ],
                 ],
               ),
             ),
-            if (onTap != null) Icon(Icons.chevron_right_rounded, color: palette.textMuted, size: 18),
+            if (onTap != null)
+              Icon(
+                Icons.chevron_right_rounded,
+                color: palette.textMuted,
+                size: 18,
+              ),
           ],
         ),
       ),

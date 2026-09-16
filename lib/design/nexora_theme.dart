@@ -6,10 +6,7 @@ import 'nexora_tokens.dart';
 ThemeData buildNexoraTheme(Brightness brightness) {
   final isDark = brightness == Brightness.dark;
   final palette = isDark ? NexoraPalette.dark : NexoraPalette.light;
-  final base = ThemeData(
-    brightness: brightness,
-    useMaterial3: true,
-  );
+  final base = ThemeData(brightness: brightness, useMaterial3: true);
 
   final baseText = base.textTheme.apply(
     fontFamily: NXText.family,
@@ -109,7 +106,11 @@ ThemeData buildNexoraTheme(Brightness brightness) {
     extensions: [palette],
     highlightColor: Colors.transparent,
     focusColor: Colors.transparent,
-    dividerTheme: DividerThemeData(color: palette.border, thickness: 1, space: 1),
+    dividerTheme: DividerThemeData(
+      color: palette.border,
+      thickness: 1,
+      space: 1,
+    ),
     dialogTheme: base.dialogTheme.copyWith(
       backgroundColor: palette.elevated,
       surfaceTintColor: Colors.transparent,

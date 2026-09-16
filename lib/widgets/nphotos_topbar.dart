@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../design/nexora_tokens.dart';
-import 'nphotos_button.dart';
 import 'nphotos_search.dart';
 
 /// Barra superior NEXORA: título de sección a la izq., búsqueda centrada
@@ -54,7 +53,8 @@ class NPhotosTopBar extends StatelessWidget {
                     s,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: NXText.muted(context).copyWith(color: palette.textBody),
+                    style: NXText.muted(context)
+                        .copyWith(color: palette.textBody),
                   ),
               ],
             ),
@@ -80,27 +80,6 @@ class NPhotosTopBar extends StatelessWidget {
           const SizedBox(width: NXSpace.s16),
         ],
       ),
-    );
-  }
-}
-
-/// Acción global de alternar tema (claro/oscuro).
-class NPhotosThemeToggle extends StatelessWidget {
-  const NPhotosThemeToggle({
-    super.key,
-    required this.isDark,
-    required this.onToggle,
-  });
-
-  final bool isDark;
-  final VoidCallback onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    return NPhotosIconButton(
-      icon: isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-      tooltip: isDark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro',
-      onPressed: onToggle,
     );
   }
 }

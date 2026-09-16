@@ -79,10 +79,7 @@ class _NPhotosAlbumCardState extends State<NPhotosAlbumCard> {
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Color(0xB3000000),
-                            ],
+                            colors: [Colors.transparent, Color(0xB3000000)],
                           ),
                         ),
                         child: Row(
@@ -106,7 +103,9 @@ class _NPhotosAlbumCardState extends State<NPhotosAlbumCard> {
                                   Text(
                                     '${widget.album.photoPaths.length} ${count == 1 ? 'photo' : 'photos'}',
                                     style: NXText.muted(context).copyWith(
-                                      color: Colors.white.withValues(alpha: 0.8),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.8,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -148,8 +147,9 @@ class _AlbumCover extends StatelessWidget {
       );
     }
     return FutureBuilder<Uint8List?>(
-      future: StoreController.instance()
-          .then((c) => c.thumbnail(photoPath!, size: 512)),
+      future: StoreController.instance().then(
+        (c) => c.thumbnail(photoPath!, size: 512),
+      ),
       builder: (context, snapshot) {
         final bytes = snapshot.data;
         if (bytes != null && bytes.isNotEmpty) {
@@ -158,7 +158,10 @@ class _AlbumCover extends StatelessWidget {
         if (snapshot.hasError) {
           return NexoraCover(variant: variant, radius: NXRadius.radius16);
         }
-        return NexoraPlaceholder(variant: variant, borderRadius: NXRadius.radius16);
+        return NexoraPlaceholder(
+          variant: variant,
+          borderRadius: NXRadius.radius16,
+        );
       },
     );
   }

@@ -76,23 +76,6 @@ class _NPhotosPhotoCardState extends State<NPhotosPhotoCard> {
                     size: widget.tilePx,
                     variant: widget.photo.path.hashCode,
                   ),
-                  // Degradado sutil inferior para leer las acciones
-                  AnimatedOpacity(
-                    opacity: _hovered ? 1 : 0,
-                    duration: NXTransition.base,
-                    child: const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Color(0x66000000),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
                   // Badge de favorito (siempre visible si es favorita)
                   if (isFav)
                     Positioned(
@@ -100,7 +83,7 @@ class _NPhotosPhotoCardState extends State<NPhotosPhotoCard> {
                       right: NXSpace.s8,
                       child: const _HeartBadge(filled: true),
                     ),
-                  // Acciones rápidas en hover
+                  // Acciones rápidas en hover sobre un único scrim
                   AnimatedOpacity(
                     opacity: _hovered ? 1 : 0,
                     duration: NXTransition.fast,
@@ -108,30 +91,44 @@ class _NPhotosPhotoCardState extends State<NPhotosPhotoCard> {
                       left: NXSpace.s6,
                       bottom: NXSpace.s6,
                       right: NXSpace.s6,
-                      child: Row(
-                        children: [
-                          if (widget.showFavorite)
-                            _QuickAction(
-                              icon: isFav
-                                  ? Icons.favorite_rounded
-                                  : Icons.favorite_border_rounded,
-                              active: isFav,
-                              tooltip: isFav ? 'Quitar de favoritos' : 'Marcar como favorita',
-                              onPressed: widget.onFavorite,
-                            ),
-                          const Spacer(),
-                          if (widget.onRemove != null)
-                            _QuickAction(
-                              icon: Icons.playlist_remove_rounded,
-                              tooltip: 'Quitar del álbum',
-                              onPressed: widget.onRemove,
-                            ),
-                          _QuickAction(
-                            icon: Icons.more_horiz_rounded,
-                            tooltip: 'Más',
-                            onPressed: widget.onMore,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: NXSpace.s4,
+                          vertical: NXSpace.s4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0x66000000),
+                          borderRadius: BorderRadius.circular(
+                            NXRadius.radius10,
                           ),
-                        ],
+                        ),
+                        child: Row(
+                          children: [
+                            if (widget.showFavorite)
+                              _QuickAction(
+                                icon: isFav
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                active: isFav,
+                                tooltip: isFav
+                                    ? 'Quitar de favoritos'
+                                    : 'Marcar como favorita',
+                                onPressed: widget.onFavorite,
+                              ),
+                            const Spacer(),
+                            if (widget.onRemove != null)
+                              _QuickAction(
+                                icon: Icons.playlist_remove_rounded,
+                                tooltip: 'Quitar del álbum',
+                                onPressed: widget.onRemove,
+                              ),
+                            _QuickAction(
+                              icon: Icons.more_horiz_rounded,
+                              tooltip: 'Más',
+                              onPressed: widget.onMore,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -246,7 +243,10 @@ class _NPhotosThumbState extends State<_NPhotosThumb> {
 
   Future<Uint8List?> _load() async {
     final controller = await StoreController.instance();
-    return controller.thumbnail(widget.path, size: widget.size.clamp(128, 900).toInt());
+    return controller.thumbnail(
+      widget.path,
+      size: widget.size.clamp(128, 900).toInt(),
+    );
   }
 
   @override

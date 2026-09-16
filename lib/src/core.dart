@@ -11,6 +11,35 @@ final ValueNotifier<ThemeMode> appThemeMode = ValueNotifier(ThemeMode.dark);
 /// Consulta global de búsqueda gestionada desde la barra superior.
 final ValueNotifier<String> globalSearchQuery = ValueNotifier('');
 
+/// Palabras típicas de capturas de pantalla (EN/ES).
+const screenshotsKeywords = [
+  'screenshot',
+  'captura',
+  'screen',
+  'screencap',
+  'pantalla',
+  'capture',
+];
+
+/// Filtro reutilizable por nombre (búsqueda global).
+List<Photo> filterPhotosByName(List<Photo> photos, String query) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return photos;
+  return photos.where((p) => p.name.toLowerCase().contains(q)).toList();
+}
+
+/// Capturas de pantalla: por nombre típico.
+List<Photo> screenshotsOf(List<Photo> photos) {
+  final regex = RegExp(screenshotsKeywords.join('|'), caseSensitive: false);
+  return photos.where((p) => regex.hasMatch(p.name)).toList();
+}
+
+/// Fotos dentro de la carpeta Downloads.
+bool downloadedOf(Photo p) {
+  final path = p.path.toLowerCase();
+  return path.contains('/downloads/') || path.contains('\\downloads\\');
+}
+
 class StoreController extends ChangeNotifier {
   StoreController._(this.store);
 
@@ -23,7 +52,12 @@ class StoreController extends ChangeNotifier {
   List<String> favorites = [];
   List<String> hiddenPaths = [];
   List<Album> albums = [];
+  List<VideoFile> videos = [];
+  List<MovedEntry> trashItems = [];
+  List<MovedEntry> secureItems = [];
+  bool pinSet = false;
   bool loading = false;
+  bool videosLoading = false;
   String? errorText;
 
   static Future<StoreController> instance() async {
@@ -36,6 +70,8 @@ class StoreController extends ChangeNotifier {
     await controller.refreshAlbums();
     await controller.refreshFavorites();
     await controller.refreshHidden();
+    await controller.refreshPinState();
+    await controller.refreshTrash();
     return controller;
   }
 
@@ -65,6 +101,32 @@ class StoreController extends ChangeNotifier {
 
   Future<void> refreshHidden() async {
     hiddenPaths = await store.hiddenPaths();
+    notifyListeners();
+  }
+
+  Future<void> refreshVideos() async {
+    videosLoading = true;
+    notifyListeners();
+    try {
+      videos = await store.scanSystemVideos();
+    } finally {
+      videosLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshTrash() async {
+    trashItems = await store.listTrash();
+    notifyListeners();
+  }
+
+  Future<void> refreshSecure() async {
+    secureItems = await store.listSecure();
+    notifyListeners();
+  }
+
+  Future<void> refreshPinState() async {
+    pinSet = await store.pinIsSet();
     notifyListeners();
   }
 
@@ -145,6 +207,7 @@ class StoreController extends ChangeNotifier {
     await store.moveToTrash(path: photo.path);
     await refreshFavorites();
     await refreshAlbums();
+    await refreshTrash();
     hiddenPaths.remove(photo.path);
   }
 
@@ -158,25 +221,50 @@ class StoreController extends ChangeNotifier {
     await _moveToSecurePath(photo.path);
     await refreshFavorites();
     await refreshAlbums();
+    await refreshSecure();
     hiddenPaths.remove(photo.path);
   }
 
-  Future<List<MovedEntry>> listTrash() => store.listTrash();
-  Future<void> restoreTrash(MovedEntry entry) =>
-      store.restoreTrash(name: entry.name);
-  Future<void> deleteTrashItem(MovedEntry entry) =>
-      store.deleteTrashItem(name: entry.name);
-  Future<void> emptyTrash() => store.emptyTrash();
+  Future<List<MovedEntry>> listTrash() => Future.value(trashItems);
+  Future<void> restoreTrash(MovedEntry entry) async {
+    await store.restoreTrash(name: entry.name);
+    await refreshTrash();
+    await scanAll();
+  }
 
-  Future<List<MovedEntry>> listSecure() => store.listSecure();
-  Future<void> restoreSecure(MovedEntry entry) =>
-      store.restoreSecure(name: entry.name);
-  Future<void> deleteSecureItem(MovedEntry entry) =>
-      store.deleteSecureItem(name: entry.name);
+  Future<void> deleteTrashItem(MovedEntry entry) async {
+    await store.deleteTrashItem(name: entry.name);
+    await refreshTrash();
+  }
 
-  Future<void> setPin(String pin) => store.setPin(pin: pin);
-  Future<void> clearPin() => store.clearPin();
-  Future<bool> pinIsSet() => store.pinIsSet();
+  Future<void> emptyTrash() async {
+    await store.emptyTrash();
+    await refreshTrash();
+  }
+
+  Future<List<MovedEntry>> listSecure() => Future.value(secureItems);
+  Future<void> restoreSecure(MovedEntry entry) async {
+    await store.restoreSecure(name: entry.name);
+    await refreshSecure();
+    await scanAll();
+  }
+
+  Future<void> deleteSecureItem(MovedEntry entry) async {
+    await store.deleteSecureItem(name: entry.name);
+    await refreshSecure();
+  }
+
+  Future<void> setPin(String pin) async {
+    await store.setPin(pin: pin);
+    await refreshPinState();
+  }
+
+  Future<void> clearPin() async {
+    await store.clearPin();
+    await refreshPinState();
+  }
+
+  Future<bool> pinIsSet() => Future.value(pinSet);
   Future<bool> verifyPin(String pin) => store.verifyPin(pin: pin);
 
   Future<List<VideoFile>> scanAllVideos() => store.scanSystemVideos();

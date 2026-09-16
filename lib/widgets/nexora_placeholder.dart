@@ -27,10 +27,7 @@ class NexoraPlaceholder extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            palette.placeholderA,
-            palette.placeholderB,
-          ],
+          colors: [palette.placeholderA, palette.placeholderB],
         ),
         borderRadius: BorderRadius.circular(borderRadius),
       ),
@@ -80,7 +77,11 @@ class NexoraCover extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius),
       ),
       child: Center(
-        child: Icon(icon, size: 34, color: Colors.white.withValues(alpha: 0.55)),
+        child: Icon(
+          icon,
+          size: 34,
+          color: Colors.white.withValues(alpha: 0.55),
+        ),
       ),
     );
   }

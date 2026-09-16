@@ -21,7 +21,8 @@ class SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = NexoraPalette.of(context);
     return Padding(
-      padding: padding ??
+      padding:
+          padding ??
           const EdgeInsets.only(
             left: NXSpace.s24,
             right: NXSpace.s24,
@@ -45,7 +46,8 @@ class SectionHeader extends StatelessWidget {
                   const SizedBox(height: NXSpace.s4),
                   Text(
                     subtitle!,
-                    style: NXText.metadata(context).copyWith(color: palette.textBody),
+                    style: NXText.metadata(context)
+                        .copyWith(color: palette.textBody),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
