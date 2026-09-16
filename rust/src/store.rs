@@ -6,6 +6,9 @@ use crate::api::Album;
 pub struct MovedItem {
     pub name: String,
     pub original: String,
+    /// Unix epoch (segundos) en que se movió a la papelera.
+    #[serde(default)]
+    pub deleted_at: u64,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]

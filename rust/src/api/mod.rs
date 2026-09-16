@@ -208,6 +208,16 @@ const THUMBS_DIR: &str = "thumbs";
 const TRASH_DIR: &str = "trash";
 const SECURE_DIR: &str = "secure";
 
+/// Tiempo de retención en la papelera: 30 días.
+const TRASH_RETENTION_SECS: u64 = 30 * 24 * 60 * 60;
+
+fn now_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
 fn cache_key_for(path: &str, modified_secs: u64, size: u64) -> String {
     let mut hasher = DefaultHasher::new();
     path.hash(&mut hasher);
@@ -546,6 +556,7 @@ impl PhotoStore {
         lock.trash_items.push(MovedItem {
             name: name.clone(),
             original: path,
+            deleted_at: now_secs(),
         });
         drop(lock);
         self.save()?;
@@ -553,6 +564,7 @@ impl PhotoStore {
     }
 
     pub fn list_trash(&self) -> Result<Vec<MovedEntry>, String> {
+        self.purge_expired_trash()?;
         let lock = self.data.lock().map_err(|e| e.to_string())?;
         let trash_dir = Path::new(&self.config_dir).join(TRASH_DIR);
         Ok(lock
@@ -565,6 +577,26 @@ impl PhotoStore {
                 size_bytes: file_size(&trash_dir.join(&item.name)),
             })
             .collect())
+    }
+
+    /// Elimina los elementos de la papelera con más de 30 días (retención real).
+    fn purge_expired_trash(&self) -> Result<(), String> {
+        let mut lock = self.data.lock().map_err(|e| e.to_string())?;
+        let trash_dir = Path::new(&self.config_dir).join(TRASH_DIR);
+        let before = lock.trash_items.len();
+        lock.trash_items.retain(|item| {
+            let expired = now_secs().saturating_sub(item.deleted_at) > TRASH_RETENTION_SECS;
+            if expired {
+                let _ = std::fs::remove_file(trash_dir.join(&item.name));
+            }
+            !expired
+        });
+        let changed = lock.trash_items.len() != before;
+        drop(lock);
+        if changed {
+            self.save()?;
+        }
+        Ok(())
     }
 
     pub fn restore_trash(&self, name: String) -> Result<(), String> {
@@ -675,6 +707,7 @@ impl PhotoStore {
         lock.secure_items.push(MovedItem {
             name: name.clone(),
             original: path,
+            deleted_at: now_secs(),
         });
         drop(lock);
         self.save()?;
@@ -939,6 +972,32 @@ mod tests {
         assert!(store.favorite_paths().unwrap().is_empty());
         let albums = store.list_albums().unwrap();
         assert!(albums[0].photo_paths.is_empty());
+    }
+
+    #[test]
+    fn trash_purges_after_retention() {
+        let root = tmp_dir("trashpurge");
+        let config = tmp_dir("trashpurge_cfg");
+        let png_path = std::path::Path::new(&root).join("old.png");
+        std::fs::write(&png_path, TINY_PNG).unwrap();
+        let store = PhotoStore::new(config.clone()).unwrap();
+
+        let p = png_path.to_string_lossy().to_string();
+        store.move_to_trash(p.clone()).unwrap();
+        assert_eq!(store.list_trash().unwrap().len(), 1);
+
+        // Simula un elemento con más de 30 días forzando deleted_at antiguo.
+        {
+            let mut lock = store.data.lock().unwrap();
+            for item in &mut lock.trash_items {
+                item.deleted_at = now_secs() - TRASH_RETENTION_SECS - 10;
+            }
+        }
+        store.save().unwrap();
+
+        assert!(store.list_trash().unwrap().is_empty());
+        // El archivo también se elimina del disco
+        assert!(!Path::new(&config).join(TRASH_DIR).join("old.png").exists());
     }
 
     #[test]
