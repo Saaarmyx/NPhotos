@@ -16,7 +16,6 @@ class StoreController extends ChangeNotifier {
 
   final Map<String, Uint8List> _thumbCache = {};
 
-  String? rootPath;
   List<Photo> photos = [];
   List<String> favorites = [];
   List<Album> albums = [];
@@ -35,20 +34,24 @@ class StoreController extends ChangeNotifier {
     return controller;
   }
 
-  Future<void> scan(String root) async {
+  /// Escanea todas las fotos del equipo (desde $HOME).
+  Future<void> scanAll() async {
     loading = true;
     errorText = null;
     notifyListeners();
     try {
-      photos = await store.scanDirectory(root: root);
-      rootPath = root;
+      photos = await store.scanSystem();
     } catch (e) {
       errorText = e.toString();
+      photos = [];
     } finally {
       loading = false;
       notifyListeners();
     }
   }
+
+  /// Reescanea todas las fotos (tras restaurar un archivo, por ejemplo).
+  Future<void> rescan() => scanAll();
 
   Future<void> refreshFavorites() async {
     favorites = await store.favoritePaths();
@@ -58,13 +61,6 @@ class StoreController extends ChangeNotifier {
   Future<void> refreshAlbums() async {
     albums = await store.listAlbums();
     notifyListeners();
-  }
-
-  /// Reescanea la carpeta activa si [path] está dentro de ella.
-  Future<void> rescanIfInRange(String? path) async {
-    final root = rootPath;
-    if (root == null || path == null || !path.startsWith(root)) return;
-    await scan(root);
   }
 
   Future<void> toggleFavorite(Photo photo) async {
@@ -147,7 +143,7 @@ class StoreController extends ChangeNotifier {
   Future<bool> pinIsSet() => store.pinIsSet();
   Future<bool> verifyPin(String pin) => store.verifyPin(pin: pin);
 
-  Future<List<VideoFile>> scanVideos(String root) => store.scanVideos(root: root);
+  Future<List<VideoFile>> scanAllVideos() => store.scanSystemVideos();
 
   Future<Album> createAlbum(String name) async {
     final album = await store.createAlbum(name: name);

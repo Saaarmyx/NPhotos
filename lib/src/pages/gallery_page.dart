@@ -1,4 +1,3 @@
-import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
 import '../core.dart';
@@ -28,56 +27,22 @@ class _GalleryPageState extends State<GalleryPage>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _pickInitialFolder());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _autoLoad());
   }
 
-  Future<void> _pickInitialFolder() async {
+  Future<void> _autoLoad() async {
     final controller = await StoreController.instance();
-    if (controller.rootPath != null) return;
-    await _pickFolder();
-  }
-
-  Future<void> _pickFolder() async {
-    final controller = await StoreController.instance();
-    String? path;
-    try {
-      path = await getDirectoryPath(initialDirectory: controller.rootPath);
-    } catch (_) {
-      path = null;
-    }
-    if (path == null && mounted) {
-      path = await _askManualPath(controller.rootPath);
-    }
-    if (path != null) {
-      await controller.scan(path);
+    if (controller.photos.isEmpty && !controller.loading) {
+      await controller.scanAll();
       if (mounted) setState(() {});
     }
   }
 
-  Future<String?> _askManualPath(String? initial) => showDialog<String>(
-        context: context,
-        builder: (context) {
-          final text = TextEditingController(text: initial ?? '');
-          return AlertDialog(
-            title: const Text('Ruta de la carpeta'),
-            content: TextField(
-              controller: text,
-              autofocus: true,
-              decoration: const InputDecoration(hintText: '/ruta/a/fotos'),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancelar'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, text.text.trim()),
-                child: const Text('Abrir'),
-              ),
-            ],
-          );
-        },
-      );
+  Future<void> _reload() async {
+    final controller = await StoreController.instance();
+    await controller.scanAll();
+    if (mounted) setState(() {});
+  }
 
   List<Photo> _sorted(List<Photo> photos) {
     final list = List<Photo>.from(photos);
@@ -135,8 +100,8 @@ class _GalleryPageState extends State<GalleryPage>
                       border: InputBorder.none,
                     ),
                   )
-                : Text(
-                    controller.rootPath ?? 'Galería',
+                : const Text(
+                    'Todas las fotos',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -214,9 +179,9 @@ class _GalleryPageState extends State<GalleryPage>
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.folder_open),
-                tooltip: 'Elegir carpeta',
-                onPressed: _pickFolder,
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Actualizar',
+                onPressed: _reload,
               ),
             ],
           ),
@@ -231,30 +196,28 @@ class _GalleryPageState extends State<GalleryPage>
                   children: [
                     const Icon(Icons.error_outline, size: 64, color: Colors.grey),
                     const SizedBox(height: 12),
-                    Text('Ruta no válida: ${controller.errorText}'),
+                    Text('No se pudo escanear: ${controller.errorText}'),
                     const SizedBox(height: 12),
                     FilledButton(
-                      onPressed: _pickFolder,
-                      child: const Text('Elegir otra carpeta'),
+                      onPressed: _reload,
+                      child: const Text('Reintentar'),
                     ),
                   ],
                 ),
               );
             }
-            if (controller.rootPath == null) {
-              return Center(
+            if (controller.photos.isEmpty) {
+              return const Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.photo_library_outlined,
-                        size: 80, color: Colors.grey),
-                    const SizedBox(height: 16),
-                    const Text('Elige una carpeta para ver tus fotos'),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      icon: const Icon(Icons.folder_open),
-                      label: const Text('Seleccionar carpeta'),
-                      onPressed: _pickFolder,
+                    Icon(Icons.photo_library_outlined, size: 80, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text('No se encontraron fotos en el equipo'),
+                    SizedBox(height: 16),
+                    Text(
+                      'Se buscan en tu carpeta personal (archivos .jpg, .png, …)',
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),

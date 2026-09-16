@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -848429903;
+  int get rustContentHash => -390493004;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -174,6 +174,12 @@ abstract class RustLibApi extends BaseApi {
   Future<List<Photo>> crateApiPhotoStoreScanDirectory({
     required PhotoStore that,
     required String root,
+  });
+
+  Future<List<Photo>> crateApiPhotoStoreScanSystem({required PhotoStore that});
+
+  Future<List<VideoFile>> crateApiPhotoStoreScanSystemVideos({
+    required PhotoStore that,
   });
 
   Future<List<VideoFile>> crateApiPhotoStoreScanVideos({
@@ -1034,6 +1040,76 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<List<Photo>> crateApiPhotoStoreScanSystem({required PhotoStore that}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPhotoStore(
+            that,
+            serializer,
+          );
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 23,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_photo,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPhotoStoreScanSystemConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhotoStoreScanSystemConstMeta =>
+      const TaskConstMeta(
+        debugName: "PhotoStore_scan_system",
+        argNames: ["that"],
+      );
+
+  @override
+  Future<List<VideoFile>> crateApiPhotoStoreScanSystemVideos({
+    required PhotoStore that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPhotoStore(
+            that,
+            serializer,
+          );
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 24,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_video_file,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPhotoStoreScanSystemVideosConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPhotoStoreScanSystemVideosConstMeta =>
+      const TaskConstMeta(
+        debugName: "PhotoStore_scan_system_videos",
+        argNames: ["that"],
+      );
+
+  @override
   Future<List<VideoFile>> crateApiPhotoStoreScanVideos({
     required PhotoStore that,
     required String root,
@@ -1050,7 +1126,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 23,
+            funcId: 25,
             port: port_,
           );
         },
@@ -1090,7 +1166,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 24,
+            funcId: 26,
             port: port_,
           );
         },
@@ -1128,7 +1204,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 25,
+            funcId: 27,
             port: port_,
           );
         },
@@ -1167,7 +1243,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 26,
+            funcId: 28,
             port: port_,
           );
         },
@@ -1205,7 +1281,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 27,
+            funcId: 29,
             port: port_,
           );
         },
@@ -1233,7 +1309,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(name, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 28)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 30)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -1258,7 +1334,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 29,
+            funcId: 31,
             port: port_,
           );
         },
@@ -2018,6 +2094,14 @@ class PhotoStoreImpl extends RustOpaque implements PhotoStore {
       .instance
       .api
       .crateApiPhotoStoreScanDirectory(that: this, root: root);
+
+  /// Escanea todas las fotos del equipo (desde $HOME), saltando carpetas
+  /// ocultas y de ruido, y excluyendo la configuración/papelera/segura.
+  Future<List<Photo>> scanSystem() =>
+      RustLib.instance.api.crateApiPhotoStoreScanSystem(that: this);
+
+  Future<List<VideoFile>> scanSystemVideos() =>
+      RustLib.instance.api.crateApiPhotoStoreScanSystemVideos(that: this);
 
   Future<List<VideoFile>> scanVideos({required String root}) =>
       RustLib.instance.api.crateApiPhotoStoreScanVideos(that: this, root: root);

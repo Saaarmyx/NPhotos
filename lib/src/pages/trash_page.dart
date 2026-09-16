@@ -35,7 +35,7 @@ class _TrashPageState extends State<TrashPage> {
   Future<void> _restore(MovedEntry entry) async {
     final controller = await StoreController.instance();
     await controller.restoreTrash(entry);
-    await controller.rescanIfInRange(entry.original);
+    await controller.rescan();
     await _load();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

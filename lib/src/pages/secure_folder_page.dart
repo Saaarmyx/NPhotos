@@ -133,7 +133,7 @@ class _SecureFolderPageState extends State<SecureFolderPage>
   Future<void> _restore(MovedEntry entry) async {
     final controller = await StoreController.instance();
     await controller.restoreSecure(entry);
-    await controller.rescanIfInRange(entry.original);
+    await controller.rescan();
     await _load();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

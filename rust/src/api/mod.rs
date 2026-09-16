@@ -19,6 +19,38 @@ const IMAGE_EXTENSIONS: &[&str] = &[
 
 const VIDEO_EXTENSIONS: &[&str] = &["mp4", "mov", "mkv", "webm", "avi", "m4v", "3gp"];
 
+/// Carpetas de ruido que se saltan al escanear todo el sistema.
+const NOISE_DIRS: &[&str] = &[
+    "node_modules",
+    "target",
+    "build",
+    "dist",
+    "Pods",
+    "__pycache__",
+    "venv",
+    "env",
+    "lost+found",
+    "snap",
+];
+
+fn home_dir() -> Result<PathBuf, String> {
+    std::env::var("HOME")
+        .map(PathBuf::from)
+        .map_err(|_| "HOME not set".to_string())
+}
+
+/// Omitir entradas ocultas, la carpeta de config de la app y ruido conocido.
+fn is_noise_dir(path: &Path, config_dir: &Path) -> bool {
+    if path.starts_with(config_dir) || path.as_os_str().is_empty() {
+        return true;
+    }
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+    name.starts_with('.') || NOISE_DIRS.contains(&name.as_str())
+}
+
 const STATE_FILE: &str = "nexora_core.json";
 
 #[derive(Debug, Clone, Serialize)]
@@ -188,7 +220,22 @@ impl PhotoStore {
         if !base.is_dir() {
             return Err(format!("Not a directory: {root}"));
         }
+        self.collect_photos(&base, false)
+    }
 
+    /// Escanea todas las fotos del equipo (desde $HOME), saltando carpetas
+    /// ocultas y de ruido, y excluyendo la configuración/papelera/segura.
+    pub fn scan_system(&self) -> Result<Vec<Photo>, String> {
+        let home = home_dir()?;
+        self.collect_photos(&home, true)
+    }
+
+    pub fn scan_system_videos(&self) -> Result<Vec<VideoFile>, String> {
+        let home = home_dir()?;
+        self.collect_videos(&home, true)
+    }
+
+    fn collect_photos(&self, root: &Path, skip_noise: bool) -> Result<Vec<Photo>, String> {
         let favorites: HashSet<String> = self
             .data
             .lock()
@@ -198,8 +245,15 @@ impl PhotoStore {
             .cloned()
             .collect();
 
+        let entries: Box<dyn Iterator<Item = walkdir::Result<walkdir::DirEntry>>> = if skip_noise {
+            Box::new(WalkDir::new(root).into_iter().filter_entry(|e| {
+                e.depth() == 0 || !is_noise_dir(e.path(), Path::new(&self.config_dir))
+            }))
+        } else {
+            Box::new(WalkDir::new(root).into_iter())
+        };
         let mut photos = Vec::new();
-        for entry in WalkDir::new(&base).into_iter().filter_map(|e| e.ok()) {
+        for entry in entries.filter_map(|e| e.ok()) {
             if !entry.file_type().is_file() {
                 continue;
             }
@@ -490,8 +544,19 @@ impl PhotoStore {
         if !base.is_dir() {
             return Err(format!("Not a directory: {root}"));
         }
+        self.collect_videos(&base, false)
+    }
+
+    fn collect_videos(&self, root: &Path, skip_noise: bool) -> Result<Vec<VideoFile>, String> {
+        let entries: Box<dyn Iterator<Item = walkdir::Result<walkdir::DirEntry>>> = if skip_noise {
+            Box::new(WalkDir::new(root).into_iter().filter_entry(|e| {
+                e.depth() == 0 || !is_noise_dir(e.path(), Path::new(&self.config_dir))
+            }))
+        } else {
+            Box::new(WalkDir::new(root).into_iter())
+        };
         let mut videos = Vec::new();
-        for entry in WalkDir::new(&base).into_iter().filter_map(|e| e.ok()) {
+        for entry in entries.filter_map(|e| e.ok()) {
             if !entry.file_type().is_file() {
                 continue;
             }
@@ -830,6 +895,28 @@ mod tests {
         let trash = store.list_trash().unwrap();
         store.delete_trash_item(trash[0].name.clone()).unwrap();
         assert!(store.list_trash().unwrap().is_empty());
+    }
+
+    #[test]
+    fn system_scan_skips_noise_dirs() {
+        let root = tmp_dir("sys");
+        let config = tmp_dir("sys_cfg");
+        let store = PhotoStore::new(config.clone()).unwrap();
+
+        let tmp = std::path::Path::new(&root);
+        std::fs::create_dir_all(tmp.join("node_modules")).unwrap();
+        std::fs::create_dir_all(tmp.join(".hidden")).unwrap();
+        std::fs::write(tmp.join("home.png"), TINY_PNG).unwrap();
+        std::fs::write(tmp.join("node_modules/junk.png"), TINY_PNG).unwrap();
+        std::fs::write(tmp.join(".hidden/secret.png"), TINY_PNG).unwrap();
+
+        let photos = store.collect_photos(tmp, true).unwrap();
+        assert_eq!(photos.len(), 1);
+        assert_eq!(photos[0].name, "home.png");
+
+        // sin skip se encuentran las tres
+        let all = store.collect_photos(tmp, false).unwrap();
+        assert_eq!(all.len(), 3);
     }
 
     #[test]

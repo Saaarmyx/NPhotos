@@ -13,32 +13,28 @@ class VideosPage extends StatefulWidget {
 class _VideosPageState extends State<VideosPage>
     with AutomaticKeepAliveClientMixin {
   List<VideoFile> _videos = const [];
-  bool _loading = false;
+  bool _loading = true;
   String? _error;
 
   @override
   bool get wantKeepAlive => true;
 
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
   Future<void> _load() async {
     final controller = await StoreController.instance();
-    final root = controller.rootPath;
-    if (root == null) {
-      setState(() {
-        _videos = const [];
-        _error = null;
-      });
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() => _loading = true);
     try {
-      final videos = await controller.scanVideos(root);
+      final videos = await controller.scanAllVideos();
       if (!mounted) return;
       setState(() {
         _videos = videos;
         _loading = false;
+        _error = null;
       });
     } catch (e) {
       if (!mounted) return;
@@ -63,35 +59,24 @@ class _VideosPageState extends State<VideosPage>
           ),
         ],
       ),
-      body: FutureBuilder<StoreController>(
-        future: StoreController.instance(),
-        builder: (context, snapshot) {
-          final controller = snapshot.data;
-          if (controller == null || controller.rootPath == null) {
-            return const Center(child: Text('Abre primero una carpeta en Galería'));
-          }
-          if (_loading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (_error != null) {
-            return Center(child: Text('Error: $_error'));
-          }
-          if (_videos.isEmpty) {
-            return const Center(child: Text('No se encontraron videos'));
-          }
-          return GridView.builder(
-            padding: const EdgeInsets.all(8),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 220,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 0.8,
-            ),
-            itemCount: _videos.length,
-            itemBuilder: (context, i) => _VideoCard(video: _videos[i]),
-          );
-        },
-      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(child: Text('Error: $_error'))
+              : _videos.isEmpty
+                  ? const Center(child: Text('No se encontraron videos'))
+                  : GridView.builder(
+                      padding: const EdgeInsets.all(8),
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 220,
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: 0.8,
+                      ),
+                      itemCount: _videos.length,
+                      itemBuilder: (context, i) => _VideoCard(video: _videos[i]),
+                    ),
     );
   }
 }

@@ -58,8 +58,8 @@ class _CapturesPageState extends State<CapturesPage>
         future: StoreController.instance(),
         builder: (context, snapshot) {
           final controller = snapshot.data;
-          if (controller == null || controller.rootPath == null) {
-            return const Center(child: Text('Abre primero una carpeta en Galería'));
+          if (controller == null) {
+            return const Center(child: CircularProgressIndicator());
           }
           if (controller.photos.isEmpty) {
             return const Center(child: Text('No hay fotos aún'));

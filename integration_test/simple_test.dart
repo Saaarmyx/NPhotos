@@ -104,4 +104,13 @@ void main() {
     await store.clearPin();
     expect(await store.pinIsSet(), isFalse);
   });
+
+  testWidgets('Rust core: escaneo del sistema no falla', (tester) async {
+    final config = await Directory.systemTemp.createTemp('nexora_it3_cfg');
+    final store = await PhotoStore.newInstance(configDir: config.path);
+
+    final all = await store.scanSystem();
+    expect(all, isA<List<Photo>>());
+    expect(store.scanSystemVideos(), completes);
+  });
 }
