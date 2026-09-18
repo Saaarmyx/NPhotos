@@ -214,9 +214,9 @@ abstract final class NXRadius {
 
 /// Transiciones y curvas.
 abstract final class NXTransition {
-  static const Duration fast = Duration(milliseconds: 120);
+  static const Duration fast = Duration(milliseconds: 150);
   static const Duration base = Duration(milliseconds: 180);
-  static const Duration slow = Duration(milliseconds: 240);
+  static const Duration slow = Duration(milliseconds: 220);
 
   static const Curve easeOut = Curves.easeOutCubic;
   static const Curve accent = Curves.easeInOutCubic;

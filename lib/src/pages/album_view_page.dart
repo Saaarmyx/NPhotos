@@ -68,33 +68,38 @@ class _AlbumViewPageState extends State<AlbumViewPage> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SectionHeader(
-            padding: const EdgeInsets.fromLTRB(
-              NXSpace.s24,
-              NXSpace.s20,
-              NXSpace.s24,
-              NXSpace.s16,
-            ),
-            title: widget.album.name,
-            subtitle: '${widget.album.photoPaths.length} photos in this album',
-            trailing: Container(
-              decoration: BoxDecoration(
-                color: palette.surface,
-                borderRadius: BorderRadius.circular(NXRadius.radius12),
-                border: Border.all(color: palette.border),
+SectionHeader(
+              padding: const EdgeInsets.fromLTRB(
+                NXSpace.s24,
+                NXSpace.s20,
+                NXSpace.s24,
+                NXSpace.s16,
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  NPhotosIconButton(
-                    icon: Icons.library_add_outlined,
-                    tooltip: 'Add photos',
-                    onPressed: _addFromGallery,
-                  ),
-                ],
+              title: widget.album.name,
+              subtitle: '${widget.album.photoPaths.length} photos in this album',
+              trailing: Container(
+                decoration: BoxDecoration(
+                  color: palette.surface,
+                  borderRadius: BorderRadius.circular(NXRadius.radius12),
+                  border: Border.all(color: palette.border),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    NPhotosIconButton(
+                      icon: Icons.library_add_outlined,
+                      tooltip: 'Add photos',
+                      onPressed: _addFromGallery,
+                    ),
+                  ],
+                ),
+              ),
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back_rounded),
+                tooltip: 'Back',
+                onPressed: () => Navigator.of(context).pop(),
               ),
             ),
-          ),
           Expanded(
             child: FutureBuilder<List<Photo>>(
               future: _photos,

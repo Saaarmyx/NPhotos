@@ -46,7 +46,27 @@ class StoreController extends ChangeNotifier {
   static StoreController? _instance;
   final PhotoStore store;
 
+  /// Caché de miniaturas en memoria: LRU real (el acceso refresca
+  /// recencia), con clave `tamaño::ruta` y deduplicación de peticiones
+  /// concurrentes en vuelo (single-flight) para no repetir llamadas al bridge.
+  static const int _thumbCacheMax = 512;
   final Map<String, Uint8List> _thumbCache = {};
+  final Map<String, Future<Uint8List?>> _thumbInflight = {};
+
+  static String _thumbKey(String path, int size) => '$size::$path';
+
+  void _thumbStore(String key, Uint8List bytes) {
+    _thumbCache.remove(key);
+    _thumbCache[key] = bytes;
+    while (_thumbCache.length > _thumbCacheMax) {
+      _thumbCache.remove(_thumbCache.keys.first);
+    }
+  }
+
+  void _thumbEvictPath(String path) {
+    final suffix = '::$path';
+    _thumbCache.removeWhere((key, _) => key.endsWith(suffix));
+  }
 
   List<Photo> photos = [];
   List<String> favorites = [];
@@ -177,21 +197,31 @@ class StoreController extends ChangeNotifier {
       store.getPhotos(paths: paths);
 
   Future<Uint8List?> thumbnail(String path, {int size = 256}) async {
-    final cached = _thumbCache[path];
-    if (cached != null) return cached;
-    final bytes = await store.thumbnailBytes(path: path, size: size);
-    if (bytes != null) {
-      _thumbCache[path] = bytes;
-      if (_thumbCache.length > 512) {
-        final oldest = _thumbCache.keys.first;
-        _thumbCache.remove(oldest);
-      }
+    final key = _thumbKey(path, size);
+    final cached = _thumbCache.remove(key);
+    if (cached != null) {
+      _thumbCache[key] = cached; // refresca recencia (LRU)
+      return cached;
     }
-    return bytes;
+    final inflight = _thumbInflight[key];
+    if (inflight != null) return inflight;
+    final future = _loadThumb(key, path, size);
+    _thumbInflight[key] = future;
+    return future;
+  }
+
+  Future<Uint8List?> _loadThumb(String key, String path, int size) async {
+    try {
+      final bytes = await store.thumbnailBytes(path: path, size: size);
+      if (bytes != null) _thumbStore(key, bytes);
+      return bytes;
+    } finally {
+      _thumbInflight.remove(key);
+    }
   }
 
   Future<void> deletePhoto(String path) async {
-    _thumbCache.remove(path);
+    _thumbEvictPath(path);
     final i = photos.indexWhere((p) => p.path == path);
     if (i != -1) photos.removeAt(i);
     await store.deletePhoto(path: path);
@@ -201,7 +231,7 @@ class StoreController extends ChangeNotifier {
   }
 
   Future<void> moveToTrash(Photo photo) async {
-    _thumbCache.remove(photo.path);
+    _thumbEvictPath(photo.path);
     final i = photos.indexWhere((p) => p.path == photo.path);
     if (i != -1) photos.removeAt(i);
     await store.moveToTrash(path: photo.path);
@@ -215,7 +245,7 @@ class StoreController extends ChangeNotifier {
       store.moveToSecure(path: path);
 
   Future<void> moveToSecure(Photo photo) async {
-    _thumbCache.remove(photo.path);
+    _thumbEvictPath(photo.path);
     final i = photos.indexWhere((p) => p.path == photo.path);
     if (i != -1) photos.removeAt(i);
     await _moveToSecurePath(photo.path);

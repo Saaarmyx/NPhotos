@@ -9,12 +9,14 @@ class SectionHeader extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.trailing,
+    this.leading,
     this.padding,
   });
 
   final String title;
   final String? subtitle;
   final Widget? trailing;
+  final Widget? leading;
   final EdgeInsetsGeometry? padding;
 
   @override
@@ -31,6 +33,12 @@ class SectionHeader extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          if (leading != null) ...[
+            Padding(
+              padding: const EdgeInsets.only(right: NXSpace.s12),
+              child: leading!,
+            ),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

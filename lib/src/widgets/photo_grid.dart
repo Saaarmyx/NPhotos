@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../design/nexora_tokens.dart';
 import '../../widgets/photo_card.dart';
@@ -7,28 +6,56 @@ import '../core.dart';
 import '../pages/photo_view_page.dart';
 import '../rust/api.dart';
 
-enum PhotoGroupBy { none, year, month }
+/// Modo de agrupación de la galería.
+enum PhotoGroupMode { compact, year, month }
 
-/// Grid adaptativo premium NEXORA de miniaturas de fotos.
+/// Nombres de mes en español (mayúsculas, jerarquía visual limpia).
+const _esMonths = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+];
+
+/// "YYYY-MM" -> "SEPTIEMBRE 2026".
+String _monthLabel(String key) {
+  final parts = key.split('-');
+  final month = _esMonths[(int.tryParse(parts[1]) ?? 1) - 1].toUpperCase();
+  return '$month ${parts[0]}';
+}
+
+/// Grid adaptativo NEXORA de miniaturas.
+///
+/// - [PhotoGroupMode.compact]: grid continuo sin encabezados.
+/// - [PhotoGroupMode.year]: agrupado por año.
+/// - [PhotoGroupMode.month]: agrupado por mes y año (reciente primero).
 class ThumbnailGrid extends StatelessWidget {
   const ThumbnailGrid({
     super.key,
     required this.photos,
-    this.groupBy = PhotoGroupBy.none,
+    this.groupMode = PhotoGroupMode.compact,
     this.onChanged,
     this.showFavoriteBadge = true,
     this.onRemoveRequest,
     this.padding = const EdgeInsets.fromLTRB(
       NXSpace.s24,
-      NXSpace.s4,
+      NXSpace.s8,
       NXSpace.s24,
       NXSpace.s32,
     ),
-    this.maxCrossAxisExtent = 250,
+    this.maxCrossAxisExtent = 240,
   });
 
   final List<Photo> photos;
-  final PhotoGroupBy groupBy;
+  final PhotoGroupMode groupMode;
   final VoidCallback? onChanged;
   final bool showFavoriteBadge;
   final Future<void> Function(Photo photo)? onRemoveRequest;
@@ -40,117 +67,130 @@ class ThumbnailGrid extends StatelessWidget {
     if (photos.isEmpty) {
       return const NPhotosGridEmpty();
     }
-    if (groupBy == PhotoGroupBy.none) {
-      return _grid(context, photos);
+    if (groupMode == PhotoGroupMode.compact) {
+      return _compactScroll(context);
     }
-    return _buildGrouped();
+    return _groupedScroll(context);
+  }
+
+  Widget _compactScroll(BuildContext context) {
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: padding,
+          sliver: _gridSliver(context, photos),
+        ),
+      ],
+    );
+  }
+
+  Widget _groupedScroll(BuildContext context) {
+    final groups = _groups();
+    return CustomScrollView(
+      slivers: [
+        for (final entry in groups.entries) ...[
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(
+              padding.resolve(TextDirection.ltr).left,
+              entry.key == groups.keys.first
+                  ? padding.resolve(TextDirection.ltr).top
+                  : NXSpace.s28,
+              padding.resolve(TextDirection.ltr).right,
+              0,
+            ),
+            sliver: SliverToBoxAdapter(
+              child: _GroupHeader(
+                label: entry.key == 'sin_fecha'
+                    ? 'Sin fecha'
+                    : groupMode == PhotoGroupMode.year
+                        ? entry.key
+                        : _monthLabel(entry.key),
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: NXSpace.s24),
+            sliver: _gridSliver(context, entry.value),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: NXSpace.s8)),
+        ],
+        SliverToBoxAdapter(child: SizedBox(height: padding.resolve(TextDirection.ltr).bottom)),
+      ],
+    );
+  }
+
+  SliverGrid _gridSliver(BuildContext context, List<Photo> gridPhotos) {
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final tilePx = (200 * devicePixelRatio).round().clamp(256, 2000);
+
+    return SliverGrid(
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: maxCrossAxisExtent,
+        crossAxisSpacing: NXSpace.s12,
+        mainAxisSpacing: NXSpace.s12,
+      ),
+      delegate: SliverChildBuilderDelegate(
+        (context, index) => _card(context, gridPhotos, index, tilePx),
+        childCount: gridPhotos.length,
+      ),
+    );
+  }
+
+  Widget _card(
+    BuildContext context,
+    List<Photo> gridPhotos,
+    int index,
+    int tilePx,
+  ) {
+    final photo = gridPhotos[index];
+    return NPhotosPhotoCard(
+      photo: photo,
+      tilePx: tilePx,
+      showFavorite: showFavoriteBadge,
+      onTap: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => PhotoViewPage(
+              photos: gridPhotos,
+              initialIndex: index,
+              onChanged: onChanged,
+            ),
+          ),
+        );
+      },
+      onLongPress: () => _showMenu(context, photo),
+      onFavorite: () => _toggleFavorite(photo),
+      onRemove: onRemoveRequest == null
+          ? null
+          : () async {
+              await onRemoveRequest!(photo);
+              onChanged?.call();
+            },
+      onMore: () => _showMenu(context, photo),
+    );
   }
 
   Map<String, List<Photo>> _groups() {
     final map = <String, List<Photo>>{};
     for (final photo in photos) {
       final key =
-          switch (groupBy) {
-            PhotoGroupBy.year => DateTime.tryParse(
+          switch (groupMode) {
+            PhotoGroupMode.year => DateTime.tryParse(
               photo.takenAt ?? '',
             )?.year.toString(),
-            PhotoGroupBy.month => DateTime.tryParse(
+            PhotoGroupMode.month => DateTime.tryParse(
               photo.takenAt ?? '',
             )?.toIso8601String().substring(0, 7),
-            PhotoGroupBy.none => null,
+            PhotoGroupMode.compact => null,
           } ??
           'sin_fecha';
       map.putIfAbsent(key, () => []).add(photo);
     }
-    // orden descendente (más reciente primero); 'sin_fecha' al final
+    // Orden descendente (más reciente primero); 'sin_fecha' al final.
     final sorted = map.keys.where((k) => k != 'sin_fecha').toList()
       ..sort((a, b) => b.compareTo(a));
     if (map.containsKey('sin_fecha')) sorted.add('sin_fecha');
     return {for (final k in sorted) k: map[k]!};
-  }
-
-  Widget _buildGrouped() {
-    final groups = _groups();
-    final keys = groups.keys.toList();
-    return ListView.builder(
-      padding: padding,
-      itemCount: keys.length,
-      itemBuilder: (context, i) {
-        final key = keys[i];
-        final groupPhotos = groups[key]!;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                NXSpace.s4,
-                NXSpace.s12,
-                NXSpace.s4,
-                NXSpace.s10,
-              ),
-              child: Text(
-                key == 'sin_fecha'
-                    ? 'Sin fecha'
-                    : (groupBy == PhotoGroupBy.year
-                          ? key
-                          : DateFormat('MMMM yyyy')
-                                .format(DateTime.tryParse('$key-02')!)),
-                style: NXText.cardTitle(context)
-                    .copyWith(color: NexoraPalette.of(context).textSecondary),
-              ),
-            ),
-            _grid(context, groupPhotos),
-            if (i == keys.length - 1) const SizedBox(height: NXSpace.s8),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _grid(BuildContext context, List<Photo> gridPhotos) {
-    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
-    final tilePx = (120 * devicePixelRatio).round().clamp(128, 900);
-
-    return GridView.builder(
-      shrinkWrap: groupBy != PhotoGroupBy.none,
-      physics: groupBy != PhotoGroupBy.none
-          ? const NeverScrollableScrollPhysics()
-          : null,
-      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: maxCrossAxisExtent,
-        crossAxisSpacing: NXSpace.s14,
-        mainAxisSpacing: NXSpace.s14,
-      ),
-      itemCount: gridPhotos.length,
-      itemBuilder: (context, index) {
-        final photo = gridPhotos[index];
-        return NPhotosPhotoCard(
-          photo: photo,
-          tilePx: tilePx,
-          showFavorite: showFavoriteBadge,
-          onTap: () async {
-            await Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => PhotoViewPage(
-                  photos: gridPhotos,
-                  initialIndex: gridPhotos.indexOf(photo),
-                  onChanged: onChanged,
-                ),
-              ),
-            );
-          },
-          onLongPress: () => _showMenu(context, photo),
-          onFavorite: () => _toggleFavorite(photo),
-          onRemove: onRemoveRequest == null
-              ? null
-              : () async {
-                  await onRemoveRequest!(photo);
-                  onChanged?.call();
-                },
-          onMore: () => _showMenu(context, photo),
-        );
-      },
-    );
   }
 
   Future<void> _toggleFavorite(Photo photo) async {
@@ -252,6 +292,35 @@ class ThumbnailGrid extends StatelessWidget {
     context: context,
     builder: (context) => _NameDialog(title: 'Nuevo álbum', initial: initial),
   );
+}
+
+/// Encabezado de grupo (año o mes) con jerarquía limpia.
+class _GroupHeader extends StatelessWidget {
+  const _GroupHeader({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = NexoraPalette.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        NXSpace.s4,
+        NXSpace.s4,
+        NXSpace.s4,
+        NXSpace.s10,
+      ),
+      child: Text(
+        label,
+        style: NXText.sectionTitle(context).copyWith(
+          color: palette.textSecondary,
+          fontSize: 19,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.2,
+        ),
+      ),
+    );
+  }
 }
 
 class NPhotosGridEmpty extends StatelessWidget {

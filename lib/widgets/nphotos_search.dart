@@ -1,141 +1,225 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../design/nexora_tokens.dart';
 
-/// Campo de búsqueda NEXORA: icono + placeholder + hover/focus +
-/// détalle de atajo visual. Emite cambios de consulta vía [onQueryChanged].
+/// Búsqueda NEXORA expandible: icono cuando está cerrada, campo cuando se
+/// abre (foco o toque). Se colapsa al perder el foco sin consulta o con Escape.
 class NPhotosSearch extends StatefulWidget {
   const NPhotosSearch({
     super.key,
     required this.onQueryChanged,
-    this.hintText = 'Search…',
-    this.controller,
+    this.hintText = 'Buscar fotos…',
+    this.focusNode,
     this.initialQuery,
-    this.autofocus = false,
-    this.width = 300,
   });
 
   final ValueChanged<String> onQueryChanged;
   final String hintText;
-  final TextEditingController? controller;
+  final FocusNode? focusNode;
   final String? initialQuery;
-  final bool autofocus;
-  final double width;
 
   @override
-  State<NPhotosSearch> createState() => _NPhotosSearchState();
+  State<NPhotosSearch> createState() => NPhotosSearchState();
 }
 
-class _NPhotosSearchState extends State<NPhotosSearch> {
-  late final TextEditingController _controller =
-      widget.controller ??
-      (widget.initialQuery != null
-          ? TextEditingController(text: widget.initialQuery)
-          : TextEditingController());
-  bool _focused = false;
+class NPhotosSearchState extends State<NPhotosSearch> {
+  late final FocusNode _focus;
+  late final bool _focusOwned;
+  late final TextEditingController _controller;
   bool _hovered = false;
+
+  bool get _queryEmpty => _controller.text.isEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus = widget.focusNode ?? FocusNode();
+    _focusOwned = widget.focusNode == null;
+    _controller = widget.initialQuery != null
+        ? TextEditingController(text: widget.initialQuery)
+        : TextEditingController();
+    _focus.addListener(_onFocusChanged);
+  }
 
   @override
   void dispose() {
-    if (widget.controller == null) _controller.dispose();
+    _focus.removeListener(_onFocusChanged);
+    _controller.dispose();
+    if (_focusOwned) _focus.dispose();
     super.dispose();
   }
 
-  void _onChanged(String value) => widget.onQueryChanged(value);
+  void _onFocusChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// Expande y enfoca el campo (usado también por el atajo global).
+  void expand() {
+    if (!_focus.hasFocus) _focus.requestFocus();
+    if (mounted) setState(() {});
+  }
+
+  /// Colapsa el campo y limpia la consulta.
+  void collapse() {
+    _controller.clear();
+    widget.onQueryChanged('');
+    _focus.unfocus();
+    if (mounted) setState(() {});
+  }
+
+  void _onChanged(String value) {
+    widget.onQueryChanged(value);
+    if (mounted) setState(() {});
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+      collapse();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
 
   @override
   Widget build(BuildContext context) {
     final palette = NexoraPalette.of(context);
-    final hasQuery = _controller.text.isNotEmpty;
 
-    final field = SizedBox(
-      width: widget.width,
-      height: 38,
-      child: Focus(
-        onFocusChange: (f) => setState(() => _focused = f),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.text,
-          onEnter: (_) => setState(() => _hovered = true),
-          onExit: (_) => setState(() => _hovered = false),
+    return ListenableBuilder(
+      listenable: _focus,
+      builder: (context, _) {
+        final isOpen = _focus.hasFocus || !_queryEmpty;
+        return AnimatedContainer(
+          duration: NXTransition.base,
+          curve: NXTransition.easeOut,
+          height: 38,
+          width: isOpen ? 260 : 38,
+          child: isOpen ? _field(context, palette) : _iconButton(context, palette),
+        );
+      },
+    );
+  }
+
+  Widget _iconButton(BuildContext context, NexoraPalette palette) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Tooltip(
+        message: 'Buscar  (⌘K)',
+        child: GestureDetector(
+          onTap: expand,
           child: AnimatedContainer(
-            duration: NXTransition.base,
+            duration: NXTransition.fast,
             curve: NXTransition.easeOut,
-            padding: const EdgeInsets.symmetric(horizontal: NXSpace.s12),
             decoration: BoxDecoration(
-              color: _focused ? palette.surface : palette.background,
+              color: _hovered ? palette.hover : Colors.transparent,
               borderRadius: BorderRadius.circular(NXRadius.radius10),
-              border: Border.all(
-                color: _focused
-                    ? NXColors.primary.withValues(alpha: 0.7)
-                    : _hovered
-                    ? palette.textMuted.withValues(alpha: 0.5)
-                    : palette.border,
-              ),
-              boxShadow: _focused
-                  ? [
-                      BoxShadow(
-                        color: NXColors.primary.withValues(alpha: 0.10),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ]
-                  : null,
             ),
-            child: Row(
-              children: [
-                AnimatedOpacity(
-                  duration: NXTransition.fast,
-                  opacity: _focused ? 1 : 0.55,
-                  child: Icon(
-                    Icons.search_rounded,
-                    size: 17,
-                    color: _focused ? NXColors.primary : palette.textBody,
-                  ),
-                ),
-                const SizedBox(width: NXSpace.s8),
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    autofocus: widget.autofocus,
-                    onChanged: _onChanged,
-                    style: TextStyle(
-                      color: palette.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: 0.1,
-                    ),
-                    cursorColor: NXColors.primary,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      hintText: widget.hintText,
-                      hintStyle: TextStyle(
-                        color: palette.textMuted,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ),
-                ),
-                if (hasQuery)
-                  _ClearButton(
-                    onPressed: () {
-                      _controller.clear();
-                      _onChanged('');
-                    },
-                  )
-                else
-                  _ShortcutBadge(label: '⌘K'),
-              ],
+            child: Icon(
+              Icons.search_rounded,
+              size: 18,
+              color: palette.textSecondary,
             ),
           ),
         ),
       ),
     );
+  }
 
-    return field;
+  Widget _field(BuildContext context, NexoraPalette palette) {
+    final hasQuery = !_queryEmpty;
+    return MouseRegion(
+      cursor: SystemMouseCursors.text,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Focus(
+        focusNode: _focus,
+        onKeyEvent: _onKey,
+        child: AnimatedContainer(
+          duration: NXTransition.base,
+          curve: NXTransition.easeOut,
+          decoration: BoxDecoration(
+            color: palette.surface,
+            borderRadius: BorderRadius.circular(NXRadius.radius10),
+            border: Border.all(
+              color: _focus.hasFocus
+                  ? NXColors.primary.withValues(alpha: 0.65)
+                  : _hovered
+                  ? palette.textMuted.withValues(alpha: 0.45)
+                  : palette.border,
+            ),
+          ),
+          child: Row(
+            children: [
+              AnimatedOpacity(
+                duration: NXTransition.fast,
+                opacity: _focus.hasFocus ? 1 : 0.55,
+                child: Icon(
+                  Icons.search_rounded,
+                  size: 16,
+                  color: _focus.hasFocus ? NXColors.primary : palette.textBody,
+                ),
+              ),
+              const SizedBox(width: NXSpace.s8),
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  onChanged: _onChanged,
+                  style: TextStyle(
+                    color: palette.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: 0.1,
+                  ),
+                  cursorColor: NXColors.primary,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    hintText: widget.hintText,
+                    hintStyle: TextStyle(
+                      color: palette.textMuted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ),
+              if (hasQuery)
+                _ClearButton(
+                  onPressed: () {
+                    _onChanged('');
+                    _controller.clear();
+                  },
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: NXSpace.s4,
+                    vertical: NXSpace.s2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: palette.hover,
+                    borderRadius: BorderRadius.circular(NXRadius.radius6),
+                    border: Border.all(color: palette.border),
+                  ),
+                  child: Text(
+                    '⌘K',
+                    style: TextStyle(
+                      color: palette.textMuted,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w500,
+                      height: 1,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -151,47 +235,13 @@ class _ClearButton extends StatelessWidget {
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: onPressed,
-        child: SizedBox(
-          width: 22,
-          height: 22,
-          child: Center(
-            child: Icon(
-              Icons.close_rounded,
-              size: 14,
-              color: palette.textMuted,
-            ),
+        child: Padding(
+          padding: const EdgeInsets.all(NXSpace.s2),
+          child: Icon(
+            Icons.close_rounded,
+            size: 14,
+            color: palette.textMuted,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ShortcutBadge extends StatelessWidget {
-  const _ShortcutBadge({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = NexoraPalette.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: NXSpace.s6,
-        vertical: NXSpace.s2,
-      ),
-      decoration: BoxDecoration(
-        color: palette.hover,
-        borderRadius: BorderRadius.circular(NXRadius.radius6),
-        border: Border.all(color: palette.border),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: palette.textMuted,
-          fontSize: 10.5,
-          fontWeight: FontWeight.w500,
-          height: 1,
         ),
       ),
     );

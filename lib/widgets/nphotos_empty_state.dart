@@ -32,15 +32,11 @@ class NPhotosEmptyState extends StatelessWidget {
             width: 88,
             height: 88,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [NXColors.red10, NXColors.red20],
-              ),
+              color: palette.hover,
               borderRadius: BorderRadius.circular(NXRadius.radius24),
-              border: Border.all(color: NXColors.red20),
+              border: Border.all(color: palette.border),
             ),
-            child: Icon(icon, size: 40, color: NXColors.primary),
+            child: Icon(icon, size: 40, color: palette.textSecondary),
           ),
           const SizedBox(height: NXSpace.s20),
           Text(

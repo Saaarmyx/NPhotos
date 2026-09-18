@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'design/nexora_theme.dart';
 import 'design/nexora_tokens.dart';
@@ -14,7 +15,6 @@ import 'src/pages/trash_page.dart';
 import 'src/pages/videos_page.dart';
 import 'src/widgets/photo_grid.dart';
 import 'widgets/nphotos_button.dart';
-import 'widgets/nphotos_group_selector.dart';
 import 'widgets/nphotos_sidebar.dart';
 import 'widgets/nphotos_topbar.dart';
 
@@ -94,7 +94,10 @@ class NPhotosShell extends StatefulWidget {
 
 class _NPhotosShellState extends State<NPhotosShell> {
   final Set<NPhotoSection> _built = {};
-  PhotoGroupBy _groupBy = PhotoGroupBy.none;
+  PhotoGroupMode _groupMode = PhotoGroupMode.compact;
+  bool _sidebarExpanded = true;
+  bool _drawerOpen = false;
+  final FocusNode _searchFocus = FocusNode();
 
   @override
   void initState() {
@@ -103,10 +106,19 @@ class _NPhotosShellState extends State<NPhotosShell> {
     _ensureLoaded(widget.section);
   }
 
+  @override
+  void dispose() {
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
   Widget _pageFor(NPhotoSection section) {
     switch (section) {
       case NPhotoSection.photos:
-        return PhotosView(groupBy: _groupBy, onGroupByChanged: _setGroupBy);
+        return PhotosView(
+          groupMode: _groupMode,
+          onGroupModeChanged: _setGroupMode,
+        );
       case NPhotoSection.albums:
         return const AlbumsPage();
       case NPhotoSection.favorites:
@@ -126,7 +138,8 @@ class _NPhotosShellState extends State<NPhotosShell> {
     }
   }
 
-  void _setGroupBy(PhotoGroupBy groupBy) => setState(() => _groupBy = groupBy);
+  void _setGroupMode(PhotoGroupMode groupMode) =>
+      setState(() => _groupMode = groupMode);
 
   /// Carga perezosa de datos que no están en el arranque.
   void _ensureLoaded(NPhotoSection section) {
@@ -204,11 +217,9 @@ class _NPhotosShellState extends State<NPhotosShell> {
     switch (widget.section) {
       case NPhotoSection.photos:
         return [
-          NPhotosGroupSelector(value: _groupBy, onChanged: _setGroupBy),
-          const SizedBox(width: NXSpace.s8),
           NPhotosIconButton(
             icon: Icons.refresh_rounded,
-            tooltip: 'Rescan library',
+            tooltip: 'Reescanear biblioteca',
             onPressed: c.scanAll,
           ),
         ];
@@ -279,45 +290,138 @@ class _NPhotosShellState extends State<NPhotosShell> {
   Widget build(BuildContext context) {
     final sections = NPhotoSection.values;
     return Scaffold(
-      body: Row(
-        children: [
-          ListenableBuilder(
-            listenable: widget.controller,
-            builder: (context, _) => NPhotosSidebar(
+      body: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          if (event is! KeyDownEvent) return KeyEventResult.ignored;
+          final modifier = HardwareKeyboard.instance.isControlPressed ||
+              HardwareKeyboard.instance.isMetaPressed;
+          if (modifier && event.logicalKey == LogicalKeyboardKey.keyK) {
+            _searchFocus.requestFocus();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final narrow = constraints.maxWidth < 760;
+
+            final sidebar = NPhotosSidebar(
               current: widget.section,
               onSectionSelected: _select,
               photoCount: widget.controller.photos.length,
-            ),
-          ),
-          Expanded(
-            child: Column(
+              expanded: false,
+            );
+
+            return Stack(
               children: [
-                ListenableBuilder(
-                  listenable: widget.controller,
-                  builder: (context, _) => NPhotosTopBar(
-                    title: widget.section.title,
-                    subtitle: _subtitleFor(widget.controller),
-                    enableSearch: _searchEnabled(),
-                    onQueryChanged: (v) => globalSearchQuery.value = v,
-                    actions: _actionsFor(widget.controller),
-                  ),
+                Row(
+                  children: [
+                    if (narrow)
+                      SizedBox(
+                        width: NPhotosSidebar.railWidth,
+                        child: ClipRect(
+                          child: NPhotosSidebar(
+                            current: widget.section,
+                            onSectionSelected: _select,
+                            photoCount: widget.controller.photos.length,
+                            expanded: false,
+                          ),
+                        ),
+                      )
+                    else
+                      AnimatedContainer(
+                        duration: NXTransition.base,
+                        curve: NXTransition.easeOut,
+                        width: _sidebarExpanded
+                            ? NPhotosSidebar.expandedWidth
+                            : NPhotosSidebar.railWidth,
+                        child: ClipRect(
+                          child: NPhotosSidebar(
+                            current: widget.section,
+                            onSectionSelected: _select,
+                            photoCount: widget.controller.photos.length,
+                            expanded: _sidebarExpanded,
+                          ),
+                        ),
+                      ),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          ListenableBuilder(
+                            listenable: widget.controller,
+                            builder: (context, _) => NPhotosTopBar(
+                              title: widget.section.title,
+                              subtitle: _subtitleFor(widget.controller),
+                              section: widget.section,
+                              enableSearch: _searchEnabled(),
+                              onQueryChanged: (v) =>
+                                  globalSearchQuery.value = v,
+                              actions: _actionsFor(widget.controller),
+                              groupMode: widget.section == NPhotoSection.photos
+                                  ? _groupMode
+                                  : null,
+                              onGroupModeChanged:
+                                  widget.section == NPhotoSection.photos
+                                      ? _setGroupMode
+                                      : null,
+                              onToggleSidebar: () => _toggleSidebar(narrow),
+                              onOpenSettings: () =>
+                                  _select(NPhotoSection.settings),
+                              searchFocusNode: _searchFocus,
+                            ),
+                          ),
+                          Expanded(
+                            child: IndexedStack(
+                              index: widget.section.index,
+                              children: [
+                                for (final s in sections)
+                                  _built.contains(s)
+                                      ? _pageFor(s)
+                                      : const SizedBox.shrink(),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                Expanded(
-                  child: IndexedStack(
-                    index: widget.section.index,
-                    children: [
-                      for (final s in sections)
-                        _built.contains(s)
-                            ? _pageFor(s)
-                            : const SizedBox.shrink(),
-                    ],
+                if (narrow && _drawerOpen) ...[
+                  GestureDetector(
+                    onTap: () => setState(() => _drawerOpen = false),
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.45),
+                    ),
                   ),
-                ),
+                  AnimatedPositioned(
+                    duration: NXTransition.base,
+                    curve: NXTransition.easeOut,
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    width: NPhotosSidebar.expandedWidth,
+                    child: Material(
+                      elevation: 24,
+                      child: sidebar,
+                    ),
+                  ),
+                ],
               ],
-            ),
-          ),
-        ],
+            );
+          },
+        ),
       ),
     );
+  }
+
+  void _toggleSidebar(bool narrow) {
+    setState(() {
+      if (narrow) {
+        _drawerOpen = !_drawerOpen;
+      } else {
+        _sidebarExpanded = !_sidebarExpanded;
+      }
+    });
   }
 }

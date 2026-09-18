@@ -7,12 +7,12 @@ import '../widgets/photo_grid.dart';
 class PhotosView extends StatefulWidget {
   const PhotosView({
     super.key,
-    required this.groupBy,
-    required this.onGroupByChanged,
+    required this.groupMode,
+    required this.onGroupModeChanged,
   });
 
-  final PhotoGroupBy groupBy;
-  final ValueChanged<PhotoGroupBy> onGroupByChanged;
+  final PhotoGroupMode groupMode;
+  final ValueChanged<PhotoGroupMode> onGroupModeChanged;
 
   @override
   State<PhotosView> createState() => _PhotosViewState();
@@ -80,7 +80,7 @@ class _PhotosViewState extends State<PhotosView> {
             }
             return ThumbnailGrid(
               photos: visible,
-              groupBy: widget.groupBy,
+              groupMode: widget.groupMode,
               onChanged: () {
                 if (mounted) setState(() {});
               },
