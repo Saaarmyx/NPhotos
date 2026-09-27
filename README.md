@@ -1,25 +1,24 @@
 # NPhotos
 
-> **App de galería inteligente** — Módulo de gestión, visualización y organización de fotos dentro del ecosistema **Nexora**.
+> Galería inteligente del ecosistema Nexora — exploración, álbumes, favoritos, colecciones y papelera con diseño adaptativo móvil/desktop.
 
-[![Flutter](https://img.shields.io/badge/Flutter-3.24+-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
-[![Dart](https://img.shields.io/badge/Dart-3.5+-0175C2?logo=dart&logoColor=white)](https://dart.dev)
-[![License](https://img.shields.io/badge/License-Private-red)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Desktop%20%7C%20Mobile%20%7C%20Web-lightgrey)](https://flutter.dev/multi-platform)
+[![Flutter](https://img.shields.io/badge/Flutter-3.47+-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
+[![Dart](https://img.shields.io/badge/Dart-3.13+-0175C2?logo=dart&logoColor=white)](https://dart.dev)
+[![License](https://img.shields.io/badge/License-Private-red)](./pubspec.yaml)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Desktop%20%7C%20Mobile-lightgrey)](https://flutter.dev/multi-platform)
 
 ---
 
 ## Propósito e Integración
 
-**NPhotos** es la aplicación de galería nativa del ecosistema **Nexora**. Su responsabilidad es proporcionar una experiencia fluida y moderna para la exploración, organización y gestión de fotografías y álbumes, integrándose de forma transparente con los servicios compartidos de Nexora (temas, navegación, ajustes, almacenamiento en la nube).
+**NPhotos** (`package:nphotos`, `v1.0.0+1`) es la **Galería oficial** del monocontenedor / suite `Nexora`.
 
-Dentro del monorepo `Nexora`, este subproyecto actúa como **aplicación final (end-user app)** que consume el sistema de diseño `NexoraUI` y expone funcionalidades específicas de multimedia:
+Actúa como **aplicación final de usuario** dentro del ecosistema: consume el kit de UI `nexora_ui` por dependencia local (`path: ../NexoraUi`) y aporta el dominio multimedia, mientras el lenguaje visual, navegación y pantallas de sistema viven en el paquete compartido:
 
-- Visualización en cuadrícula y lista con soporte multi-plataforma.
-- Gestión de álbumes automática basada en estructura de carpetas.
-- Favoritos con persistencia en memoria.
-- Configuración avanzada (sincronización cloud, agrupación inteligente, OCR, conversión HEIF).
-- Preparado para futura sincronización cloud y escritorio (Linux/Windows/macOS).
+- `NAppShell` + `AppAppearance` (`NColors.photosAccent`) como raíz y tema reactivo.
+- `NMobileLayout` / `NDesktopLayout` + `ResponsiveLayout` para navegación adaptativa.
+- `NSettingsScreen`, cuenta, personalización y acerca de reutilizados del kit.
+- NPhotos solo implementa galería, álbumes, favoritos, colecciones, visor y persistencia local (`shared_preferences`).
 
 ---
 
@@ -27,114 +26,113 @@ Dentro del monorepo `Nexora`, este subproyecto actúa como **aplicación final (
 
 ```text
 nphotos/
-├── android/                    # Configuración nativa Android (Gradle, Manifest, Kotlin)
-├── ios/                        # Configuración nativa iOS (Xcode, Swift)
-├── linux/                      # Configuración nativa Linux (CMake, GTK)
-├── macos/                      # Configuración nativa macOS (Xcode)
-├── windows/                    # Configuración nativa Windows (CMake, MSVC)
-├── web/                        # Configuración Web PWA (index.html, manifest, icons)
 ├── lib/
-│   ├── main.dart               # Punto de entrada: inicializa tema/acento y lanza NPhotosApp
+│   ├── main.dart                     # Entrada: fija photosAccent y lanza NPhotosApp
 │   ├── app/
-│   │   └── nphotos_app.dart    # App root: temas, navegación bottom-bar, pantallas, settings
+│   │   └── nphotos_app.dart          # NAppShell + ResponsiveLayout + 4 destinos + sidebar desktop
 │   ├── models/
-│   │   └── photo.dart          # Modelo de dominio Photo con copyWith para inmutabilidad
+│   │   ├── photo.dart                # Entidad inmutable Photo + copyWith
+│   │   └── collection.dart           # CollectionKind (iconos, labels, detalle)
 │   ├── controllers/
-│   │   └── gallery_controller.dart  # ChangeNotifier: estado, permisos, álbumes, favoritos
+│   │   └── gallery_controller.dart   # ChangeNotifier: estado, favoritos, papelera, álbumes
 │   ├── services/
-│   │   └── photo_service.dart  # Carga de fotos Android/Linux, filtrado, validación
-│   └── screens/
-│       ├── gallery/
-│       │   ├── gallery_screen.dart      # GridView responsiva con estados (carga, error, vacío)
-│       │   └── photo_viewer_screen.dart # PageView + InteractiveViewer + bottom bar acciones
-│       ├── albums/
-│       │   └── albums_screen.dart       # GridView de álbumes + detalle con grid interno
-│       ├── favorites/
-│       │   └── favorites_screen.dart    # GridView de favoritos con botón quitar favorito
-│       └── settings/
-│           └── nphotos_settings_screen.dart # Settings específicas + enlace a settings globales
+│   │   ├── photo_service.dart        # Escaneo Android/Linux en isolate (compute)
+│   │   └── local_store.dart          # Persistencia favoritos + papelera (shared_preferences)
+│   ├── screens/
+│   │   ├── gallery/
+│   │   │   ├── gallery_screen.dart        # Grid responsivo + estados carga/error/vacío
+│   │   │   └── photo_viewer_screen.dart   # Visor PageView + zoom + acciones
+│   │   ├── albums/
+│   │   │   └── albums_screen.dart         # Álbumes por carpeta + detalle interno
+│   │   ├── favorites/
+│   │   │   └── favorites_screen.dart      # Grid filtrado por isFavorite
+│   │   ├── collections/
+│   │   │   └── collections_screen.dart    # Colecciones + CollectionDetailScreen
+│   │   └── settings/
+│   │       └── nphotos_settings_screen.dart # Ajustes propios + enlace a settings globales
+│   └── widgets/
+│       ├── photo_grid.dart           # Grid reutilizable
+│       └── photo_tile.dart           # Tile con Image.file + cache + error
 ├── test/
-│   └── widget_test.dart        # Test de smoke (plantilla por defecto)
-├── pubspec.yaml                # Dependencias: flutter, nexora_ui (local), permission_handler, path
-├── analysis_options.yaml       # Lints compartidos (flutter_lints)
-└── README.md                   # (este archivo)
+│   ├── gallery_controller_test.dart  # Lógica favoritos/papelera/álbumes
+│   ├── local_store_test.dart         # Persistencia local
+│   └── widget_test.dart              # Smoke test
+├── android/ linux/ windows/ web/     # Runners nativos multi-plataforma
+├── pubspec.yaml                      # Deps: nexora_ui (path), permission_handler, path, shared_preferences
+├── analysis_options.yaml             # flutter_lints
+└── README.md                         # (este archivo)
 ```
-
-> **Nota:** La arquitectura sigue el patrón **Feature-First** dentro de `lib/screens/`. Cada pantalla es un feature autocontenido que importa exclusivamente de `nexora_ui`, modelos y controladores locales.
 
 ---
 
 ## Componentes / Funcionalidades Clave
 
-| Área | Descripción |
-|------|-------------|
-| **Galería (Grid)** | `GalleryScreen` — Cuadrícula responsiva (3 cols Android / 5 cols Desktop) con `Image.file`, cacheWidth 250, manejo de errores y tap a visor. |
-| **Visor de Fotos** | `PhotoViewerScreen` — `PageView` + `InteractiveViewer` (zoom 0.8×–4×), AppBar translúcida, BottomAppBar con share/favorite/info. |
-| **Álbumes (Lista/Grid)** | `AlbumsScreen` — Grid de álbumes con cover, nombre y contador; navegación a `_AlbumDetailScreen` con grid interno. |
-| **Favoritos** | `FavoritesScreen` — Grid filtrado por `isFavorite`, empty state ilustrado, botón overlay para quitar favorito. |
-| **Navegación Principal** | Bottom Navigation Bar con 3 destinos: Fotos, Álbumes, Favoritos (`NBottomBarItem` de `nexora_ui`). |
-| **Temas & Apariencia** | `AppAppearance` (de `nexora_ui`) controla `accentColor` (`NColors.photosAccent`) y `ThemeMode` (light/dark) reactivos. |
-| **Configuración Específica** | `NPhotosSettingsScreen`: nube (sync, descarga automática), organización (ráfagas, rostros), enlace a settings globales de Nexora. |
-| **Settings Globales** | `NSettingsScreen` (de `nexora_ui`) con perfil, info de app (`NAboutAppInfo`), grupos adicionales: *Organización inteligente* y *Explorar y compartir*. |
-| **Modelo de Datos** | `Photo` (en `lib/models/photo.dart`) — id, path, thumbnailPath, title, fechas, tamaño, isFavorite, dimensiones. |
-| **Controlador Central** | `GalleryController` (ChangeNotifier): estado de carga, permisos Android, `fetchPhotos()`, `toggleFavorite()`, getters `photos`, `favoritePhotos`, `albums`. |
-| **Servicio de Carga** | `PhotoService`: multi-plataforma (Android/DCIM+Pictures+Download, Linux/Pictures+Downloads+Imágenes), filtrado ocultos, extensiones soportadas, orden por fecha desc. |
-| **Desktop (Pausado)** | Código comentado en `nphotos_app.dart` para `ResponsiveLayout` + `NDesktopLayout` (sidebar). |
+- **Galería:** `GalleryScreen` + `PhotoGrid` / `PhotoTile` — cuadrícula responsiva (3 cols móvil / 5 cols desktop), `Image.file` con `cacheWidth`, estados de carga, error, vacío y permiso denegado.
+- **Visor:** `PhotoViewerScreen` — `PageView` + `InteractiveViewer` (zoom 0.8x–4x), chrome de `nexora_ui` (`NViewerTopBar` / `NViewerBottomBar`), compartir, favorito, papelera.
+- **Álbumes:** `AlbumsScreen` — agrupación por carpeta (`GalleryController.albums`), cover + contador, detalle con grid interno.
+- **Favoritos:** `FavoritesScreen` — filtro reactivo `favoritePhotos`, toggle con persistencia, empty state ilustrado.
+- **Colecciones:** `CollectionsScreen` + `CollectionDetailScreen` — destinos extra del sidebar desktop vía `CollectionKind`.
+- **Navegación:** 4 destinos unificados `NNavigationDestination` (Fotos, Álbumes, Favoritos, Colecciones), `NMobileLayout` (bottom bar) + `NDesktopLayout` (sidebar con ancho auto-ajustado).
+- **Estado central:** `GalleryController` (`GalleryState`: initial/loading/loaded/permissionDenied/error), `fetchPhotos()`, `toggleFavorite()`, `moveToTrash()` / `restoreFromTrash()` / `deletePermanently()` / `emptyTrash()`, cachés de derivados.
+- **Servicios:** `PhotoService` — raíces Android (`DCIM`/`Pictures`/`Download`) y Linux (`Pictures`/`Downloads`/`Imágenes`), filtrado de ocultos y extensiones (`jpg/jpeg/png/webp/gif/heic`), escaneo en isolate con `compute`, orden por fecha desc; `LocalStore` — favoritos y papelera persistentes.
+- **Tokens y átomos:** Reutilizados de `nexora_ui` — `NColors`, `NSpacing`, `NTypography`, `NBreakpoints`, `NButton`, `NCard`, `NEmptyState`, `NStateViews`, `ThemeAware`.
 
 ---
 
 ## Guía de Uso Rápido
 
-### Como aplicación standalone
-
-```bash
-cd nphotos
-flutter pub get
-flutter run -d linux   # o -d macos / -d windows / -d chrome / -d android / -d ios
-```
-
-### Importando pantallas en otro módulo Nexora
+### Lanzar la aplicación
 
 ```dart
-import 'package:nphotos/screens/gallery/gallery_screen.dart';
-import 'package:nphotos/screens/albums/albums_screen.dart';
-import 'package:nphotos/screens/favorites/favorites_screen.dart';
-import 'package:nphotos/app/nphotos_app.dart'; // Para lanzar la app completa
-import 'package:nphotos/controllers/gallery_controller.dart';
-
-// Uso directo de una pantalla dentro de un Navigator propio:
-final controller = GalleryController();
-await controller.fetchPhotos();
-
-Navigator.of(context).push(
-  MaterialPageRoute(builder: (_) => GalleryScreen(controller: controller)),
-);
-```
-
-### Inicialización manual del tema (si se usa fuera de `main.dart`)
-
-```dart
+import 'package:flutter/material.dart';
 import 'package:nexora_ui/nexora_ui.dart';
+import 'package:nphotos/app/nphotos_app.dart';
 
-void initializeNPhotosTheme() {
+void main() {
   AppAppearance.setAccentColor(NColors.photosAccent);
-  // Opcional: forzar tema
-  // AppAppearance.themeMode.value = ThemeMode.dark;
+  runApp(const NPhotosApp());
 }
 ```
 
-### Uso del modelo y servicio de forma aislada
+### Consumir controlador, modelo y servicio de forma aislada
 
 ```dart
-import 'package:nphotos/models/photo.dart';
+import 'package:nphotos/controllers/gallery_controller.dart';
 import 'package:nphotos/services/photo_service.dart';
+import 'package:nphotos/models/photo.dart';
 
+// 1. Carga directa del servicio (sin UI)
 final service = PhotoService();
-final photos = await service.loadPhotos();
+final List<Photo> photos = await service.loadPhotos();
 
-for (final photo in photos) {
-  print('${photo.title} - ${photo.dateModified} - ${photo.sizeInBytes} bytes');
-  final favorite = photo.copyWith(isFavorite: true);
+// 2. Controlador reactivo (para widgets)
+final controller = GalleryController(photoService: service);
+await controller.fetchPhotos();
+
+print('Total: ${controller.photos.length}');
+print('Favoritos: ${controller.favoritePhotos.length}');
+print('Álbumes: ${controller.albums.length}');
+
+// 3. Acciones
+await controller.toggleFavorite(photos.first.id);
+await controller.moveToTrash(photos.last.id);
+```
+
+### Embeber una pantalla en otro módulo Nexora
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nphotos/controllers/gallery_controller.dart';
+import 'package:nphotos/screens/gallery/gallery_screen.dart';
+
+class MiSeccion extends StatelessWidget {
+  final GalleryController controller;
+  const MiSeccion({super.key, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return GalleryScreen(controller: controller);
+  }
 }
 ```
 
@@ -145,44 +143,48 @@ for (final photo in photos) {
 | Comando | Descripción |
 |---------|-------------|
 | `flutter pub get` | Instala dependencias (incluye `nexora_ui` vía `path: ../NexoraUi`). |
-| `flutter run -d linux` | Ejecuta en modo debug en Linux (desktop). |
-| `flutter run -d macos` | Ejecuta en macOS (requiere Xcode). |
-| `flutter run -d windows` | Ejecuta en Windows (requiere Visual Studio + CMake). |
-| `flutter run -d chrome` | Ejecuta en navegador (Web/PWA). |
-| `flutter run -d <device_id>` | Ejecuta en dispositivo/emulador móvil conectado (`flutter devices`). |
-| `flutter test` | Ejecuta tests unitarios/widget (`test/widget_test.dart`). |
-| `flutter analyze` | Análisis estático con lints de `flutter_lints`. |
-| `flutter build linux --release` | Build de release para Linux (ejecutable en `build/linux/.../release/bundle/`). |
-| `flutter build macos --release` | Build de release para macOS (bundle .app). |
-| `flutter build windows --release` | Build de release para Windows (ejecutable .exe en `build/windows/.../runner/Release/`). |
-| `flutter build apk --release` | Genera APK de release Android (`build/app/outputs/flutter-apk/`). |
-| `flutter build appbundle --release` | Genera AAB para Play Store. |
-| `flutter build ios --release` | Genera build iOS (requiere Xcode, produce .ipa). |
-| `flutter build web --release` | Genera build web estático en `build/web/`. |
+| `flutter run -d linux` | Ejecuta en modo desarrollo en Linux (desktop). |
+| `flutter run -d chrome` | Ejecuta en Web. |
+| `flutter run -d <device_id>` | Ejecuta en móvil/emulador (`flutter devices`). |
+| `flutter test` | Ejecuta tests (`gallery_controller_test`, `local_store_test`). |
+| `flutter analyze` | Análisis estático con `flutter_lints`. |
+| `flutter build linux --release` | Bundle release Linux (`build/linux/.../release/bundle/`). |
+| `flutter build apk --release` | APK release Android (`build/app/outputs/flutter-apk/`). |
+
+### Flujo recomendado
+
+```bash
+# 1. Desde la raíz del subproyecto
+cd nphotos
+flutter pub get
+
+# 2. Verificar calidad
+flutter analyze
+flutter test
+
+# 3. Desarrollo desktop
+flutter run -d linux
+
+# 4. Si cambiaste NexoraUi, re-sincroniza
+cd ../NexoraUi && flutter pub get
+cd ../nphotos && flutter pub get
+flutter run -d linux
+```
 
 ### Requisitos previos
 
-- **Flutter SDK** ≥ 3.24 (canal stable).
-- **Dart SDK** ≥ 3.5 (incluido en Flutter).
-- **NexoraUi** disponible localmente en `../NexoraUi` (mismo nivel de directorio).
-- **Android**: Android Studio + SDK + `flutter doctor --android-licenses`.
-- **iOS/macOS**: Xcode 15+ + CocoaPods (`sudo gem install cocoapods`).
-- **Linux**: `clang`, `cmake`, `ninja-build`, `pkg-config`, `libgtk-3-dev`, `liblzma-dev`, `libblkid-dev`.
-- **Windows**: Visual Studio 2022 + "Desktop development with C++" + CMake.
-- **Web**: Chrome/Edge instalado.
-
-### Variables de entorno útiles (Linux)
-
-```bash
-export FLUTTER_GPU_THREAD_PRIORITY=high  # Prioridad hilo GPU (opcional)
-export ENABLE_FLUTTER_DESKTOP=true       # Habilitado por defecto en Flutter 3.x
-```
+- **Flutter SDK** >= 3.19.0 (probado en 3.47.5, canal stable).
+- **Dart SDK** ^3.13.4 (incluido en Flutter).
+- **NexoraUi** disponible en `../NexoraUi` (mismo nivel del workspace).
+- **Android:** Android Studio + SDK + `flutter doctor --android-licenses` (permisos `photos` / `storage` vía `permission_handler`).
+- **Linux:** `clang`, `cmake`, `ninja-build`, `pkg-config`, `libgtk-3-dev`, `liblzma-dev`.
+- Paquete privado (`publish_to: none`): no se publica en pub.dev.
 
 ---
 
 ## Escritura de Commits
 
-Este proyecto sigue **Conventional Commits 1.0.0**. Cada commit debe estructurarse así:
+Este subproyecto sigue estrictamente el estándar **Conventional Commits 1.0.0**:
 
 ```text
 <tipo>[ámbito opcional]: <descripción corta en minúsculas>
@@ -192,34 +194,17 @@ Este proyecto sigue **Conventional Commits 1.0.0**. Cada commit debe estructurar
 [pie opcional: BREAKING CHANGE / fixes #issue]
 ```
 
-### Tipos permitidos
-
-| Tipo | Cuándo usarlo |
-|------|---------------|
-| `feat` | Nueva funcionalidad (pantalla, setting, modelo, servicio). |
-| `fix` | Corrección de bug (permiso, carga, render). |
-| `refactor` | Reestructuración sin cambio de comportamiento. |
-| `style` | Formato, imports, lint fixes. |
-| `docs` | Cambios en README, comentarios de código, docstrings. |
-| `test` | Añadir/modificar tests unitarios/widget/integration. |
-| `chore` | Mantenimiento: deps, scripts, CI, assets. |
-| `perf` | Mejora de rendimiento (cache, lazy load, isolate). |
-| `build` | Cambios en sistema de build (CMake, Gradle, pubspec). |
-| `ci` | Cambios en pipelines CI/CD. |
-
-### Ejemplos
+Tipos permitidos: `feat`, `fix`, `refactor`, `style`, `docs`, `test`, `chore`, `perf`, `build`, `ci`.
 
 ```bash
 git commit -m "feat(gallery): implement real photo grid with FutureBuilder"
 git commit -m "fix(android): handle runtime permission denial gracefully"
 git commit -m "refactor(controller): extract album grouping to AlbumService"
 git commit -m "docs: update README with desktop build instructions"
-git commit -m "chore(deps): upgrade nexora_ui to latest local changes"
-git commit -m "perf(photo_service): add thumbnail caching via isolate"
-git commit -m "test(gallery): add golden test for empty state"
+git commit -m "test(controller): cover trash and favorites persistence"
 ```
 
-> **Regla de oro:** *Un commit, una responsabilidad lógica.* Si el mensaje necesita «y», probablemente sean dos commits.
+> Regla de oro: *un commit, una responsabilidad lógica.* Si el mensaje necesita «y», probablemente sean dos commits.
 
 ---
 
