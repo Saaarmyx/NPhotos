@@ -37,6 +37,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   permission_handler: ^11.3.1
   path: ^1.9.0
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:
