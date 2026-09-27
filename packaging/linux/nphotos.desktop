@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=NPhotos
+Comment=Visor y organizador de fotos de Nexora
+Exec=nphotos
+Icon=nphotos
+Terminal=false
+Type=Application
+Categories=Graphics;Photography;
