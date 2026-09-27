@@ -1,10 +1,11 @@
 // lib/screens/favorites/favorites_screen.dart
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:nexora_ui/nexora_ui.dart';
 
 import '../../controllers/gallery_controller.dart';
 import '../../models/photo.dart';
+import '../../widgets/photo_grid.dart';
+import '../../widgets/photo_tile.dart';
 
 class FavoritesScreen extends StatelessWidget {
   final GalleryController controller;
@@ -18,28 +19,14 @@ class FavoritesScreen extends StatelessWidget {
         final favorites = controller.favoritePhotos;
 
         if (favorites.isEmpty) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.favorite_border, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text(
-                  'No tienes fotos marcadas como favoritas',
-                  style: TextStyle(color: Colors.grey, fontSize: 16),
-                ),
-              ],
-            ),
+          return const NEmptyState(
+            icon: Icons.favorite_border,
+            title: 'No tienes fotos marcadas como favoritas',
+            subtitle: 'Toca el corazón en una foto para añadirla aquí.',
           );
         }
 
-        return GridView.builder(
-          padding: const EdgeInsets.all(8),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: Platform.isAndroid ? 3 : 5,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-          ),
+        return PhotoGrid.photos(
           itemCount: favorites.length,
           itemBuilder: (context, index) {
             final photo = favorites[index];
@@ -59,41 +46,32 @@ class _FavoriteCard extends StatelessWidget {
   final VoidCallback onRemoveFavorite;
 
   const _FavoriteCard({
-    Key? key,
     required this.photo,
     required this.onRemoveFavorite,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.file(
-            File(photo.path),
-            fit: BoxFit.cover,
-            cacheWidth: 250,
-            errorBuilder: (_, __, ___) => Container(color: Colors.black12),
-          ),
-          Positioned(
-            top: 6,
-            right: 6,
-            child: GestureDetector(
-              onTap: onRemoveFavorite,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.favorite, color: Colors.red, size: 18),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        PhotoTile(path: photo.path),
+        Positioned(
+          top: NSpacing.space2xs,
+          right: NSpacing.space2xs,
+          child: GestureDetector(
+            onTap: onRemoveFavorite,
+            child: Container(
+              padding: const EdgeInsets.all(NSpacing.space2xs),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.6),
+                shape: BoxShape.circle,
               ),
+              child: const Icon(Icons.favorite, color: Colors.red, size: 18),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -1,8 +1,34 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:nexora_ui/nexora_ui.dart';
 
 import '../../controllers/gallery_controller.dart';
+
+/// Nombres de mes en español para la cabecera del visor.
+const _kMonthsEs = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+];
+
+/// 'Septiembre 11, 2026'.
+String _formatViewerDate(DateTime date) =>
+    '${_kMonthsEs[date.month - 1]} ${date.day}, ${date.year}';
+
+/// '21:38'.
+String _formatViewerTime(DateTime date) =>
+    '${date.hour.toString().padLeft(2, '0')}:'
+    '${date.minute.toString().padLeft(2, '0')}';
 
 class PhotoViewerScreen extends StatefulWidget {
   final GalleryController controller;
@@ -21,6 +47,9 @@ class PhotoViewerScreen extends StatefulWidget {
 class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
   late final PageController _pageController;
   late int _currentIndex;
+
+  /// Giros de visualización por foto (solo sesión, no se persiste).
+  final Map<String, int> _rotations = {};
 
   @override
   void initState() {
@@ -42,31 +71,41 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
       builder: (context, _) {
         final photos = widget.controller.photos;
 
-        if (photos.isEmpty || _currentIndex >= photos.length) {
+        if (photos.isEmpty) {
           return const Scaffold(
             backgroundColor: Colors.black,
-            body: Center(
-              child: Text(
-                'No hay imagen disponible',
-                style: TextStyle(color: Colors.white),
-              ),
+            body: NEmptyState(
+              icon: Icons.broken_image_outlined,
+              title: 'No hay imagen disponible',
+              foregroundColor: Colors.white,
             ),
           );
         }
 
-        final currentPhoto = photos[_currentIndex];
+        // La lista puede recargarse con menos elementos mientras se mira una
+        // foto: se recorta el índice para el chrome (fecha y acciones).
+        final safeIndex = _currentIndex.clamp(0, photos.length - 1);
+        final currentPhoto = photos[safeIndex];
 
-        return Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.black.withOpacity(0.6),
-            iconTheme: const IconThemeData(color: Colors.white),
-            title: Text(
-              currentPhoto.title,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-            ),
-          ),
-          body: PageView.builder(
+        return NPhotoViewer(
+          title: _formatViewerDate(currentPhoto.dateModified),
+          subtitle: _formatViewerTime(currentPhoto.dateModified),
+          onRotate: () => setState(() {
+            _rotations[currentPhoto.id] =
+                ((_rotations[currentPhoto.id] ?? 0) + 1) % 4;
+          }),
+          // TODO: implementar compartir (p. ej. con share_plus).
+          onShare: () {},
+          // TODO: implementar edición.
+          onEdit: () {},
+          onDelete: () {
+            widget.controller.moveToTrash(currentPhoto.id);
+            Navigator.of(context).pop();
+          },
+          isFavorite: currentPhoto.isFavorite,
+          onFavoriteToggle: () =>
+              widget.controller.toggleFavorite(currentPhoto.id),
+          child: PageView.builder(
             controller: _pageController,
             itemCount: photos.length,
             onPageChanged: (index) {
@@ -80,50 +119,21 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                 minScale: 0.8,
                 maxScale: 4.0,
                 child: Center(
-                  child: Image.file(
-                    File(photo.path),
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(
-                      Icons.broken_image_outlined,
-                      color: Colors.white38,
-                      size: 64,
+                  child: RotatedBox(
+                    quarterTurns: _rotations[photo.id] ?? 0,
+                    child: Image.file(
+                      File(photo.path),
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const Icon(
+                        Icons.broken_image_outlined,
+                        color: Colors.white38,
+                        size: 64,
+                      ),
                     ),
                   ),
                 ),
               );
             },
-          ),
-          bottomNavigationBar: BottomAppBar(
-            color: Colors.black.withOpacity(0.8),
-            elevation: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.share_outlined, color: Colors.white),
-                  onPressed: () {
-                    // Acción para compartir
-                  },
-                ),
-                IconButton(
-                  icon: Icon(
-                    currentPhoto.isFavorite
-                        ? Icons.favorite
-                        : Icons.favorite_border,
-                    color: currentPhoto.isFavorite ? Colors.red : Colors.white,
-                  ),
-                  onPressed: () {
-                    widget.controller.toggleFavorite(currentPhoto.id);
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.info_outline, color: Colors.white),
-                  onPressed: () {
-                    // Acción para ver detalles de la foto
-                  },
-                ),
-              ],
-            ),
           ),
         );
       },
