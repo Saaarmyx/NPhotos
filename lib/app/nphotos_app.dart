@@ -5,46 +5,48 @@ import '../controllers/gallery_controller.dart';
 import '../screens/gallery/gallery_screen.dart';
 import '../screens/albums/albums_screen.dart';
 import '../screens/favorites/favorites_screen.dart';
+import '../screens/collections/collections_screen.dart';
+import '../screens/settings/nphotos_settings_screen.dart';
+import '../models/collection.dart';
 
 class NPhotosApp extends StatelessWidget {
   const NPhotosApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<Color>(
-      valueListenable: AppAppearance.accentColor,
-      builder: (context, _, child) => ValueListenableBuilder<ThemeMode>(
-        valueListenable: AppAppearance.themeMode,
-        builder: (context, mode, _) => MaterialApp(
-          title: 'NPhotos',
-          debugShowCheckedModeBanner: false,
-          themeMode: mode,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          home: const NPhotosHome(),
-        ),
-      ),
-    );
+    return const NAppShell(title: 'NPhotos', home: NPhotosHome());
   }
 }
 
-// Misma lista pensada para bottom bar (móvil) y sidebar (desktop, cuando
-// retomemos esa plataforma).
+// Destinos principales: bottom bar (móvil) y base del sidebar (desktop).
 const _navItems = [
-  NBottomBarItem(
+  NNavigationDestination(
     icon: Icons.photo_outlined,
     activeIcon: Icons.photo,
     label: 'Fotos',
   ),
-  NBottomBarItem(
+  NNavigationDestination(
     icon: Icons.photo_album_outlined,
     activeIcon: Icons.photo_album,
     label: 'Álbumes',
   ),
-  NBottomBarItem(
+  NNavigationDestination(
     icon: Icons.favorite_border,
     activeIcon: Icons.favorite,
     label: 'Favoritos',
+  ),
+  NNavigationDestination(
+    icon: Icons.collections_bookmark_outlined,
+    activeIcon: Icons.collections_bookmark,
+    label: 'Colecciones',
+  ),
+];
+
+// Sidebar desktop: principales + las opciones de colecciones.
+List<NNavigationDestination> get _sidebarItems => [
+  ..._navItems,
+  ...CollectionKind.values.map(
+    (kind) => NNavigationDestination(icon: kind.icon, label: kind.label),
   ),
 ];
 
@@ -76,95 +78,54 @@ class _NPhotosHomeState extends State<NPhotosHome> {
 
   void _openSettings() {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => NSettingsScreen(
-          profileData: const UserProfileData(
-            name: 'Nexora Labs',
-            email: 'nexora@ncloud.com',
-            avatarUrl: '',
-            storageUsedGb: 1.2,
-            storageTotalGb: 256,
-          ),
-          appInfo: const NAboutAppInfo(
-            appName: 'NPhotos',
-            version: '0.1.0',
-            buildNumber: '1',
-          ),
-          additionalGroups: [
-            NAdditionalSettingsGroup(
-              title: 'Organización inteligente',
-              items: [
-                NSettingsOptionItem(
-                  icon: Icons.auto_awesome_outlined,
-                  title: 'Seleccionar mejor foto',
-                  onTap: () {},
-                ),
-                NSettingsOptionItem(
-                  icon: Icons.face_retouching_natural_outlined,
-                  title: 'Agrupar rostros similares',
-                  onTap: () {},
-                ),
-                NSettingsOptionItem(
-                  icon: Icons.burst_mode_outlined,
-                  title: 'Agrupar fotos en ráfaga',
-                  onTap: () {},
-                ),
-                NSettingsOptionItem(
-                  icon: Icons.calendar_today_outlined,
-                  title: 'Un día como hoy',
-                  onTap: () {},
-                ),
-              ],
-            ),
-            NAdditionalSettingsGroup(
-              title: 'Explorar y compartir',
-              items: [
-                NSettingsOptionItem(
-                  icon: Icons.visibility_off_outlined,
-                  title: 'Ver álbumes ocultos',
-                  onTap: () {},
-                ),
-                NSettingsOptionItem(
-                  icon: Icons.text_fields_outlined,
-                  title: 'Reconocer texto en imágenes',
-                  onTap: () {},
-                ),
-                NSettingsOptionItem(
-                  icon: Icons.transform_outlined,
-                  title: 'Convertir HEIF antes de enviar',
-                  onTap: () {},
-                ),
-                NSettingsOptionItem(
-                  icon: Icons.share_outlined,
-                  title: 'Compartir de forma segura',
-                  onTap: () {},
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+      MaterialPageRoute(builder: (_) => const NPhotosSettingsScreen()),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Definimos las pantallas dinámicamente inyectando el controller
-    final screens = [
+    // Pantallas principales (móvil) inyectando el controller.
+    final mainScreens = [
       GalleryScreen(controller: _galleryController),
       AlbumsScreen(controller: _galleryController),
       FavoritesScreen(controller: _galleryController),
+      CollectionsScreen(controller: _galleryController),
     ];
 
-    final body = IndexedStack(index: _selectedIndex, children: screens);
+    // Desktop: principales + un detalle por cada colección.
+    final desktopScreens = [
+      ...mainScreens,
+      ...CollectionKind.values.map(
+        (kind) =>
+            CollectionDetailScreen(controller: _galleryController, kind: kind),
+      ),
+    ];
 
-    return NMobileLayout(
-      title: 'NPhotos',
-      body: body,
-      currentIndex: _selectedIndex,
-      onNavigationIndexChanged: (i) => setState(() => _selectedIndex = i),
-      navigationItems: _navItems,
-      onSettingsPressed: _openSettings,
+    int clampIndex(int index, int length) =>
+        length == 0 ? 0 : index.clamp(0, length - 1);
+
+    return ResponsiveLayout(
+      mobileLayout: NMobileLayout(
+        title: 'NPhotos',
+        body: IndexedStack(
+          index: clampIndex(_selectedIndex, mainScreens.length),
+          children: mainScreens,
+        ),
+        currentIndex: clampIndex(_selectedIndex, _navItems.length),
+        onNavigationIndexChanged: (i) => setState(() => _selectedIndex = i),
+        navigationItems: _navItems,
+        onSettingsPressed: _openSettings,
+      ),
+      desktopLayout: NDesktopLayout(
+        body: IndexedStack(
+          index: clampIndex(_selectedIndex, desktopScreens.length),
+          children: desktopScreens,
+        ),
+        selectedIndex: clampIndex(_selectedIndex, _sidebarItems.length),
+        onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+        sidebarItems: _sidebarItems,
+        onSettingsPressed: _openSettings,
+      ),
     );
   }
 }
