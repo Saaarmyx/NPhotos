@@ -1,0 +1,8 @@
+# Copiar a android/key.properties (NO commitear) y rellenar.
+# Generar el keystore una vez con:
+#   keytool -genkey -v -keystore ~/keystores/nphotos-release.jks \
+#     -alias nphotos -keyalg RSA -keysize 2048 -validity 10000
+storeFile=/home/usuario/keystores/nphotos-release.jks
+storePassword=CAMBIA_ESTA_CONTRASEÑA
+keyAlias=nphotos
+keyPassword=CAMBIA_ESTA_CONTRASEÑA
