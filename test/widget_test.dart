@@ -65,9 +65,9 @@ void main() {
     // Título del top bar móvil.
     expect(find.text('NPhotos'), findsOneWidget);
     // La bottom bar muestra iconos (y etiqueta en la pestaña activa).
+    // Favoritos vive solo en Álbumes, no navega.
     expect(find.byIcon(Icons.photo), findsOneWidget);
     expect(find.byIcon(Icons.photo_album_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.favorite_border), findsOneWidget);
     expect(find.byIcon(Icons.collections_bookmark_outlined), findsOneWidget);
   });
 
@@ -87,6 +87,10 @@ void main() {
 
     expect(find.text('Añadidos recientemente'), findsOneWidget);
     expect(find.text('Lugares'), findsOneWidget);
+    expect(find.text('Documentos'), findsOneWidget);
+    expect(find.text('Alta definición'), findsOneWidget);
+    expect(find.text('Personas'), findsOneWidget);
+    expect(find.text('Carpeta privada'), findsOneWidget);
     // Vídeos y Papelera viven pineados en Álbumes, no en Colecciones.
     expect(find.text('Vídeos'), findsNothing);
     expect(find.text('Papelera'), findsNothing);
@@ -144,13 +148,17 @@ void main() {
 
     expect(find.byType(NDesktopLayout), findsOneWidget);
     expect(find.byType(NDesktopSidebar), findsOneWidget);
-    // Sidebar: Fotos, Álbumes, Favoritos + contenido de Colecciones
+    // Sidebar: Fotos, Álbumes + contenido de Colecciones
     // aplanado (sin entrada padre). Topbar de escritorio visible.
+    // Favoritos vive solo en Álbumes, no navega.
     expect(find.byIcon(Icons.photo), findsOneWidget);
     expect(find.byIcon(Icons.photo_album_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.favorite_border), findsOneWidget);
-    expect(find.byIcon(Icons.place_outlined), findsOneWidget);
     expect(find.byIcon(Icons.access_time_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.people_outline), findsOneWidget);
+    expect(find.byIcon(Icons.place_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.description_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.hd_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.lock_outline), findsOneWidget);
     expect(find.text('Colecciones'), findsNothing);
     expect(find.byIcon(Icons.videocam_outlined), findsNothing);
     expect(find.byIcon(Icons.delete_outline), findsNothing);
@@ -188,7 +196,7 @@ void main() {
     // Acciones con callback se muestran; sin callback (Editar) se oculta.
     expect(find.byTooltip('Compartir'), findsOneWidget);
     expect(find.byTooltip('Editar'), findsNothing);
-    expect(find.byTooltip('Eliminar'), findsOneWidget);
+    expect(find.byTooltip('Borrar'), findsOneWidget);
     expect(find.byTooltip('Favorito'), findsOneWidget);
   });
 }
