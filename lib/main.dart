@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:nexora_ui/nexora_ui.dart';
 
 import 'app/nphotos_app.dart';
+import 'services/local_store.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
-  AppAppearance.setAccentColor(NColors.photosAccent);
-  runApp(const NPhotosApp());
+  final store = await LocalStore.load();
+  store.applyAppearance();
+  runApp(NPhotosApp(store: store));
 }
