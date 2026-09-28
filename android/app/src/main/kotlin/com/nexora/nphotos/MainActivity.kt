@@ -1,4 +1,4 @@
-package com.example.nphotos
+package com.nexora.nphotos
 
 import io.flutter.embedding.android.FlutterActivity
 
