@@ -1,20 +1,37 @@
-import 'dart:io';
-
+// lib/widgets/photo_tile.dart
+//
+// Adaptador de dominio: mapea el modelo `Photo` a las primitivas de
+// imagen del kit (NImageTile + insignias). No contiene lógica visual
+// propia salvo la regla de insignias, que es del dominio.
+//
+// Reglas de insignias:
+// - Siempre hay miniatura. En vídeos NO se intenta decodificar el
+//   archivo (fallaría siempre): se usa NVideoThumb, reconocible.
+// - Arriba derecha: favorito (si aplica).
+// - Abajo centro: si es vídeo, play + duración.
+// - Abajo izquierda: solo fotos, máximo 2 iconos
+//   (motion > HD/+50MP > selfie). En vídeos va vacío.
 import 'package:flutter/material.dart';
 import 'package:nexora_ui/nexora_ui.dart';
 
-/// Tile único para mostrar una foto local.
-///
-/// Centraliza el `Image.file` que antes estaba duplicado en galería,
-/// favoritos y álbumes, junto con su `errorBuilder`. Sin redondeo: las
-/// fotos se renderizan a sangre en la parrilla. Usa colores del tema
-/// para que los cambios en `nexora_ui` propaguen.
+import '../models/photo.dart';
+
 class PhotoTile extends StatelessWidget {
   final String path;
   final int cacheWidth;
   final BoxFit fit;
   final double? width;
   final bool isVideo;
+
+  /// Modelo rico opcional. Si se pasa, las insignias se derivan de él.
+  /// Mantiene compat con llamadas legacy que solo pasan [path]/[isVideo].
+  final Photo? photo;
+
+  /// Modo selección: si no es null, se muestra el estado seleccionado.
+  final bool? selected;
+
+  /// Silencia las insignias (para listas de selección compactas).
+  final bool showBadges;
 
   const PhotoTile({
     super.key,
@@ -23,47 +40,67 @@ class PhotoTile extends StatelessWidget {
     this.fit = BoxFit.cover,
     this.width,
     this.isVideo = false,
+    this.photo,
+    this.selected,
+    this.showBadges = true,
   });
+
+  bool get _effectiveIsVideo => photo?.isVideo ?? isVideo;
+  bool get _effectiveIsFavorite => photo?.isFavorite ?? false;
+  String get _effectivePath => photo?.path ?? path;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.file(
-          File(path),
-          width: width,
-          fit: fit,
-          cacheWidth: cacheWidth,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              color: context.nSurfaceTranslucentColor,
-              child: Icon(
-                isVideo ? Icons.videocam_outlined : Icons.broken_image_outlined,
-                color: context.nMutedTextColor,
-                size: 28,
-              ),
-            );
-          },
-        ),
-        if (isVideo)
-          Positioned(
-            right: 6,
-            bottom: 6,
-            child: Container(
-              padding: const EdgeInsets.all(NSpacing.spaceXs),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.65),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.play_arrow,
-                color: Colors.white,
-                size: 14,
-              ),
-            ),
-          ),
-      ],
+    final video = _effectiveIsVideo;
+    final inSelection = selected != null;
+    final badges = showBadges && !inSelection ? _buildBadges(video) : const <NImageBadge>[];
+
+    // La miniatura la resuelve el kit: vídeo → portada (Flutter no
+    // decodifica MP4), foto → `Image.file` con su fallback.
+    return NImageTile.file(
+      _effectivePath,
+      width: width,
+      fit: fit,
+      cacheWidth: cacheWidth,
+      isVideo: video,
+      badges: badges,
+      selected: selected,
     );
+  }
+
+  List<NImageBadge> _buildBadges(bool video) {
+    return [
+      if (_effectiveIsFavorite)
+        const NImageBadge(
+          anchor: NBadgeAnchor.topEnd,
+          child: NImageCircleBadge(icon: Icons.favorite, iconColor: Colors.red),
+        ),
+      if (video)
+        NImageBadge(
+          anchor: NBadgeAnchor.bottomCenter,
+          margin: 0,
+          child: Center(
+            child: NVideoBadge(label: photo?.formattedDuration),
+          ),
+        )
+      else if (_statusIcons().isNotEmpty)
+        NImageBadge(
+          anchor: NBadgeAnchor.bottomStart,
+          child: NImageBadgeRow(icons: _statusIcons()),
+        ),
+    ];
+  }
+
+  /// Máximo 2 iconos de estado para fotos. Prioridad:
+  /// motion > HD/+50MP > selfie.
+  List<IconData> _statusIcons() {
+    final p = photo;
+    if (p == null || p.isVideo) return const [];
+    final icons = <IconData>[];
+    if (p.isMotionPhoto) icons.add(Icons.motion_photos_on_outlined);
+    if (p.isHighResolution) icons.add(Icons.hd_outlined);
+    if (p.isSelfie) icons.add(Icons.face_outlined);
+    if (icons.length > 2) return icons.sublist(0, 2);
+    return icons;
   }
 }
