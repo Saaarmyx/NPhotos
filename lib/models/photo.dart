@@ -8,6 +8,7 @@ class Photo {
   final DateTime dateModified;
   final int sizeInBytes;
   final bool isFavorite;
+  final bool isVideo;
   final int? width;
   final int? height;
 
@@ -20,6 +21,7 @@ class Photo {
     required this.dateModified,
     required this.sizeInBytes,
     this.isFavorite = false,
+    this.isVideo = false,
     this.width,
     this.height,
   });
@@ -33,6 +35,7 @@ class Photo {
     DateTime? dateModified,
     int? sizeInBytes,
     bool? isFavorite,
+    bool? isVideo,
     int? width,
     int? height,
   }) {
@@ -45,6 +48,7 @@ class Photo {
       dateModified: dateModified ?? this.dateModified,
       sizeInBytes: sizeInBytes ?? this.sizeInBytes,
       isFavorite: isFavorite ?? this.isFavorite,
+      isVideo: isVideo ?? this.isVideo,
       width: width ?? this.width,
       height: height ?? this.height,
     );
