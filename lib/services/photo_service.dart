@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/photo.dart';
+import 'media_probe.dart';
 
 class PhotoService {
   static const Set<String> imageExtensions = {
@@ -130,6 +131,17 @@ class PhotoService {
             ),
             sizeInBytes: row['size'] as int,
             isVideo: (row['isVideo'] as bool?) ?? false,
+            width: row['width'] as int?,
+            height: row['height'] as int?,
+            latitude: (row['lat'] as num?)?.toDouble(),
+            longitude: (row['lng'] as num?)?.toDouble(),
+            locationLabel: _locationLabel(
+              (row['lat'] as num?)?.toDouble(),
+              (row['lng'] as num?)?.toDouble(),
+            ),
+            isMotionPhoto: _isMotionPhoto(row['path'] as String),
+            isSelfie: _isSelfie(row['path'] as String),
+            // duration se resuelve bajo demanda en el visor (media_kit).
           ),
         )
         .toList();
@@ -138,10 +150,40 @@ class PhotoService {
     return photos;
   }
 
-  /// Barrido síncrono pensado para correr en background. Solo devuelve
-  /// tipos primitivos porque cruza el límite del isolate.
-  static List<Map<String, Object>> _scanPaths(List<String> dirPaths) {
-    final rows = <Map<String, Object>>[];
+  /// Etiqueta geográfica legible a partir de coordenadas EXIF.
+  /// Sin red (sin geocodificación inversa): coordenadas con 4 decimales
+  /// (~11 m). Null = el visor oculta la ubicación.
+  static String? _locationLabel(double? lat, double? lng) {
+    if (lat == null || lng == null) return null;
+    return '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';
+  }
+
+  /// Heurística Motion Photo por nombre (MVIMG, motion, live).
+  static bool _isMotionPhoto(String filePath) {
+    final name = p.basename(filePath).toUpperCase();
+    return name.contains('MVIMG') ||
+        name.contains('MOTION') ||
+        name.contains('LIVE');
+  }
+
+  /// Heurística selfie por nombre/carpeta (frontal, selfie).
+  static bool _isSelfie(String filePath) {
+    final lower = filePath.toLowerCase();
+    return lower.contains('selfie') ||
+        lower.contains('front') ||
+        lower.contains('img_f');
+  }
+
+  /// Barrido asíncrono pensado para correr en background vía `compute`.
+  /// Solo devuelve tipos primitivos porque cruza el límite del isolate.
+  ///
+  /// Dos fases: (1) caminata síncrona rápida con `stat` y (2) sonda de
+  /// cabecera (dimensiones + GPS EXIF) en lotes concurrentes. Un fallo
+  /// por archivo nunca rompe el barrido: esa foto queda sin metadatos.
+  static Future<List<Map<String, Object>>> _scanPaths(
+    List<String> dirPaths,
+  ) async {
+    final found = <_FoundFile>[];
     for (final dirPath in dirPaths) {
       try {
         final entities = Directory(
@@ -160,21 +202,57 @@ class PhotoService {
           // Ignorar archivos vacíos / corruptos de 0 bytes
           if (stat.size == 0) continue;
 
-          rows.add({
-            'path': file.path,
-            'created': stat.changed.millisecondsSinceEpoch,
-            'modified': stat.modified.millisecondsSinceEpoch,
-            'size': stat.size,
-            'isVideo': videoExtensions.contains(
-              p.extension(file.path).toLowerCase(),
+          found.add(
+            _FoundFile(
+              path: file.path,
+              created: stat.changed.millisecondsSinceEpoch,
+              modified: stat.modified.millisecondsSinceEpoch,
+              size: stat.size,
+              isVideo: videoExtensions.contains(
+                p.extension(file.path).toLowerCase(),
+              ),
             ),
-          });
+          );
         }
       } catch (e) {
         debugPrint('Error leyendo directorio ($dirPath): $e');
       }
     }
+
+    final rows = <Map<String, Object>>[];
+    // Lotes concurrentes: I/O en paralelo sin saturar descriptores.
+    for (var i = 0; i < found.length; i += 24) {
+      final batch = found.sublist(
+        i,
+        i + 24 > found.length ? found.length : i + 24,
+      );
+      final probed = await Future.wait(batch.map(_probeFound));
+      rows.addAll(probed);
+    }
     return rows;
+  }
+
+  /// Materializa la fila de un archivo + su sonda (si es imagen).
+  static Future<Map<String, Object>> _probeFound(_FoundFile file) async {
+    final row = <String, Object>{
+      'path': file.path,
+      'created': file.created,
+      'modified': file.modified,
+      'size': file.size,
+      'isVideo': file.isVideo,
+    };
+    if (file.isVideo) return row;
+    try {
+      final probe = await probeImageFile(file.path);
+      if (probe == null) return row;
+      if (probe.width != null) row['width'] = probe.width!;
+      if (probe.height != null) row['height'] = probe.height!;
+      if (probe.latitude != null) row['lat'] = probe.latitude!;
+      if (probe.longitude != null) row['lng'] = probe.longitude!;
+    } catch (_) {
+      // Sonda best-effort: la foto entra igual, sin metadatos.
+    }
+    return row;
   }
 
   /// Helper para validar si un archivo es una foto/vídeo válido y NO oculto.
@@ -201,4 +279,21 @@ class PhotoService {
 
     return true;
   }
+}
+
+/// Archivo candidato hallado en la caminata (fase 1 del escaneo).
+class _FoundFile {
+  final String path;
+  final int created;
+  final int modified;
+  final int size;
+  final bool isVideo;
+
+  const _FoundFile({
+    required this.path,
+    required this.created,
+    required this.modified,
+    required this.size,
+    required this.isVideo,
+  });
 }
