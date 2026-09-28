@@ -65,7 +65,22 @@ fi
 echo "==> fuente: $(basename "$SRC")"
 
 render_svg() { # $1=origen $2=salida $3=px
-  inkscape "$1" --export-type=png --export-filename="$2" -w "$3" -h "$3" >/dev/null 2>&1
+  # OJO inkscape snap: exige rutas absolutas y solo escribe dentro de
+  # áreas permitidas (el repo vale, /tmp personalizado no).
+  local src dst px
+  src="$(realpath "$1")"; dst="$(realpath -m "$2")"; px="$3"
+  if inkscape --export-type=png --export-filename="$dst" \
+      -w "$px" -h "$px" "$src" >/dev/null 2>&1 && [ -s "$dst" ]; then
+    return 0
+  fi
+  echo "  inkscape falló, probando cairosvg..."
+  SRC_IMG="$src" DST_IMG="$dst" PX="$px" python3 - <<'EOF'
+import os
+import cairosvg
+px = int(os.environ["PX"])
+cairosvg.svg2png(url=os.environ["SRC_IMG"], write_to=os.environ["DST_IMG"],
+                 output_width=px, output_height=px)
+EOF
 }
 
 render_png() { # $1=origen $2=salida $3=px  (vía PIL)
@@ -87,6 +102,7 @@ render() { # $1=origen $2=salida $3=px $4=kind
   else
     render_png "$1" "$2" "$3"
   fi
+  [ -s "$2" ] || fail "no se pudo renderizar $2"
 }
 
 # --- Android ---
@@ -98,7 +114,8 @@ done
 # de 66dp sobre 108dp). Sin este inset el arte se ve cropeado/con zoom.
 for entry in $FG_DENSITIES; do
   dpi="${entry%%:*}"; px="${entry##*:}"
-  tmp="$(mktemp --suffix=.png)"
+  # Temp junto al destino: inkscape snap no escribe en /tmp personalizado.
+  tmp="$(mktemp -p "$RES/mipmap-${dpi}" .fg-tmp.XXXXXX.png)"
   # shellcheck disable=SC2064
   trap "rm -f '$tmp'" EXIT
   render "$FG" "$tmp" "$(python3 -c "print(round($px * $FG_SCALE))")" "$FG_KIND"
