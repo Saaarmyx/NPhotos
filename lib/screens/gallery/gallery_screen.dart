@@ -50,24 +50,30 @@ class GalleryScreen extends StatelessWidget {
               );
             }
 
-            return PhotoGrid.photos(
-              itemCount: controller.photos.length,
-              itemBuilder: (context, index) {
-                final photo = controller.photos[index];
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => PhotoViewerScreen(
-                          controller: controller,
-                          initialIndex: index,
+            return RefreshIndicator(
+              onRefresh: controller.refresh,
+              child: PhotoGrid.photos(
+                itemCount: controller.photos.length,
+                itemBuilder: (context, index) {
+                  final photo = controller.photos[index];
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => PhotoViewerScreen(
+                            controller: controller,
+                            initialIndex: index,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                  child: PhotoTile(path: photo.path),
-                );
-              },
+                      );
+                    },
+                    child: PhotoTile(
+                      path: photo.path,
+                      isVideo: photo.isVideo,
+                    ),
+                  );
+                },
+              ),
             );
         }
       },
