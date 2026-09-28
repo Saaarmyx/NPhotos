@@ -1,12 +1,12 @@
 # ============================================================
-# .gitignore para proyecto Flutter
-# Soporte: Dart / Flutter / Android / iOS / Linux / Windows / Web
-# Sistema operativo: macOS / Windows / Linux
-# Editores: VS Code / Android Studio / IntelliJ / Vim / Emacs
+# .gitignore — NPhotos (Flutter)
+# Soporta: Android, Linux desktop
+# Sistema operativo: macOS, Windows, Linux
+# Editores: VS Code, Android Studio / IntelliJ, Vim, Sublime
 # ============================================================
 
 # ------------------------------------------------------------
-# 1. Flutter / Dart / Pub
+# 1. Flutter / Dart — núcleo
 # ------------------------------------------------------------
 .dart_tool/
 .flutter-plugins
@@ -14,44 +14,38 @@
 .pub-cache/
 .pub/
 .flutter-sdk-version
-# pubspec.lock se versiona en APPS, se ignora solo en PACKAGES.
-# Descomenta la siguiente línea si es un PACKAGE y no una APP:
-# pubspec.lock
+.local_properties/
 
-# Build y salidas generadas
+# Salidas de compilación de Flutter (los artefactos finales
+# viven en compilaciones/, ver sección 10).
 /build/
 **/doc/api/
-/coverage/
-.widget_preview/
-
-# Archivos de símbolos y ofuscación
 app.*.symbols
 app.*.map.json
 
-# Configuración local de Flutter
-.local_properties/
+# NOTA: en APPS el pubspec.lock SÍ se versiona (builds reproducibles).
+# Solo se ignoraría en PACKAGES puros.
 
 # ------------------------------------------------------------
-# 2. Android
+# 2. Android (Gradle + firma + binarios)
 # ------------------------------------------------------------
-# Build de Gradle y Android Studio
-/android/app/debug
-/android/app/profile
-/android/app/release
 /android/.gradle/
-/android/app/build/
 /android/build/
+/android/app/build/
+/android/app/debug/
+/android/app/profile/
+/android/app/release/
 /android/captures/
 /android/local.properties
 /android/*.iml
 
-# Firma release - NO subir claves
+# Firma release y almacenes de claves — NUNCA subir al repo.
 android/key.properties
 *.jks
 *.keystore
 *.p12
 
-# Archivos compilados Java / Kotlin
+# Compilados Java/Kotlin y empaquetados Android.
 *.class
 *.dex
 *.apk
@@ -60,9 +54,28 @@ android/key.properties
 *.aar
 
 # ------------------------------------------------------------
-# 3. iOS / macOS / Xcode
+# 3. Linux desktop (Flutter)
 # ------------------------------------------------------------
-# Aunque este proyecto no incluya ios/, se deja por compatibilidad Flutter
+/linux/build/
+/linux/flutter/generated_plugin_registrant.cc
+/linux/flutter/generated_plugin_registrant.h
+/linux/flutter/generated_plugins.cmake
+
+# ------------------------------------------------------------
+# 4. Windows desktop (Flutter + Visual Studio)
+# ------------------------------------------------------------
+/windows/build/
+/windows/flutter/generated_plugin_registrant.cc
+/windows/flutter/generated_plugin_registrant.h
+/windows/flutter/generated_plugins.cmake
+.vs/
+*.user
+*.suo
+*.vcxproj.filters
+
+# ------------------------------------------------------------
+# 5. iOS / macOS (plantilla Flutter, por compatibilidad)
+# ------------------------------------------------------------
 /ios/Flutter/.last_build_id
 /ios/Flutter/Generated.xcconfig
 /ios/Flutter/flutter_export_environment.sh
@@ -78,53 +91,18 @@ DerivedData/
 *.dSYM.zip
 *.dSYM
 *.mobileprovision
-*.xcuserstate
-*.xccheckout
-*.moved-aside
-Carthage/Build/
-
-# macOS (carpeta macos/ en Flutter)
 /macos/Flutter/GeneratedPluginRegistrant.swift
 /macos/Flutter/Flutter-Release.xcconfig
 /macos/Flutter/Flutter-Debug.xcconfig
 
 # ------------------------------------------------------------
-# 4. Linux (soporte Flutter desktop)
-# ------------------------------------------------------------
-/linux/flutter/generated_plugin_registrant.cc
-/linux/flutter/generated_plugin_registrant.h
-/linux/flutter/generated_plugins.cmake
-/linux/build/
-
-# ------------------------------------------------------------
-# 5. Windows (soporte Flutter desktop)
-# ------------------------------------------------------------
-/windows/flutter/generated_plugin_registrant.cc
-/windows/flutter/generated_plugin_registrant.h
-/windows/flutter/generated_plugins.cmake
-/windows/build/
-
-# Archivos de Visual Studio
-.vs/
-*.user
-*.suo
-*.sln.docstates
-*.vcxproj.filters
-Debug/
-Release/
-x64/
-x86/
-[Bb]in/
-[Oo]bj/
-
-# ------------------------------------------------------------
-# 6. Web
+# 6. Web (solo salidas; los iconos/fuentes de web/ SÍ se versionan)
 # ------------------------------------------------------------
 /web/build/
 lib/generated_plugin_registrant.dart
 
 # ------------------------------------------------------------
-# 7. Sistema Operativo - macOS
+# 7. Sistema operativo — macOS
 # ------------------------------------------------------------
 .DS_Store
 .AppleDouble
@@ -136,34 +114,38 @@ lib/generated_plugin_registrant.dart
 .TemporaryItems
 .VolumeIcon.icns
 .com.apple.timemachine.donotpresent
-.AppleDB
-.AppleDesktop
 
 # ------------------------------------------------------------
-# 8. Sistema Operativo - Windows
+# 8. Sistema operativo — Windows
 # ------------------------------------------------------------
 Thumbs.db
-Thumbs.db:encryptable
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 *.lnk
-*.cab
-*.msi
-*.msm
-*.msp
 
 # ------------------------------------------------------------
-# 9. Sistema Operativo - Linux
+# 9. Sistema operativo — Linux
 # ------------------------------------------------------------
 *~
 .fuse_hidden*
 .directory
 .Trash-*
-.nfs*
 
 # ------------------------------------------------------------
-# 10. Editores - VS Code
+# 10. Nexora / NPhotos — compilaciones y packaging
+# ------------------------------------------------------------
+# Salidas por canal: compilaciones/apk|deb/release|beta|debug/
+compilaciones/
+/packaging/output/
+*.deb
+*.rpm
+*.snap
+*.msi
+*.cab
+
+# ------------------------------------------------------------
+# 11. Editores — VS Code
 # ------------------------------------------------------------
 .vscode/*
 !.vscode/settings.json
@@ -174,93 +156,49 @@ $RECYCLE.BIN/
 .history/
 
 # ------------------------------------------------------------
-# 11. Editores - IntelliJ / Android Studio
+# 12. Editores — Android Studio / IntelliJ
 # ------------------------------------------------------------
 .idea/
 *.iml
 *.ipr
 *.iws
-*.iws.old
 out/
-.idea_modules/
 
 # ------------------------------------------------------------
-# 12. Editores - Vim / Emacs / Otros
+# 13. Editores — Vim / Sublime / otros
 # ------------------------------------------------------------
 *.swp
 *.swo
 *.swn
-*~
-\#*\#
-.\#*
-\#*#
-/.emacs.desktop
-/.emacs.desktop.lock
-*.elc
-auto-save-list
-tramp
-.\#*
-
-# Sublime Text
 *.sublime-project
 *.sublime-workspace
-
-# Atom
-.atom/
+*~
 
 # ------------------------------------------------------------
-# 13. Python (si usas scripts o venv junto a Flutter)
+# 14. Python (scripts de packaging/icons) y cachés
 # ------------------------------------------------------------
-__pycache__/
-*.py[cod]
-*$py.class
 venv/
 .venv/
-env/
-.env/
-pip-log.txt
-pip-delete-this-directory.txt
-.pytest_cache/
-.mypy_cache/
+__pycache__/
+*.py[cod]
 
 # ------------------------------------------------------------
-# 14. Dart / Flutter - Tests y Análisis
+# 15. Cobertura, tests y misceláneo
 # ------------------------------------------------------------
 /coverage/
 .test_cache/
-test/coverage_helper_test.dart
-
-# ------------------------------------------------------------
-# 15. Misceláneo
-# ------------------------------------------------------------
 *.log
-*.bak
 *.tmp
-*.temp
-*.orig
-*.rej
-*.svg.bak
-[Tt]emp/
-[Cc]ache/
+*.bak
 node_modules/
-.svn/
-migrate_working_dir/
-.build/
-.buildlog/
 
-# Empaquetado Debian / Linux (ej. packaging/, *.deb)
-/packaging/output/
-*.deb
-*.rpm
-*.snap
-
-# Archivos sensibles / entorno
+# ------------------------------------------------------------
+# 16. Secretos y entorno — NUNCA subir al repo
+# ------------------------------------------------------------
 .env
 .env.*
 !.env.example
-key.properties
 google-services.json
 GoogleService-Info.plist
 *.pem
-*.mobileprovision
 secrets/
