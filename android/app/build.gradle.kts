@@ -15,6 +15,10 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // `flutter_local_notifications` (vía NexoraUI) usa APIs de java.time
+        // que no existen en Android por debajo de la 26. Sin esto, el build
+        // falla en `checkDebugAarMetadata` al validar la metadata del AAR.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -69,4 +73,10 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Debe ir en :app (no solo en el plugin): es la app la que ejecuta
+    // el desugaring de su bytecode y de sus dependencias.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
