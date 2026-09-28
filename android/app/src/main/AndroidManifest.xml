@@ -33,34 +33,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Variantes para el selector experimental de iconos
-             (AppIconVariant default/light/dark). Deshabilitadas por defecto:
-             el conmutador activa una y desactiva las demás vía
-             PackageManager.setComponentEnabledSetting. -->
-        <activity-alias
-            android:name=".LauncherLight"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_light"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".LauncherDark"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_dark"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity-alias>
-
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
