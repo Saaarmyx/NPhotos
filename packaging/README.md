@@ -1,69 +1,41 @@
-# Packaging NPhotos: iconos, APK y .deb
+# Packaging NPhotos: compilaciones por canal (release/beta/debug)
 
-## 1. El icono: especificaciones
+Las salidas van a `compilaciones/` (ignorada por git):
 
-Fuente de verdad: `assets/vectors/nphotos.svg` (+ `-light`, `-dark`).
-Reglas para el diseño:
+```
+compilaciones/
+  apk/release|beta|debug/
+  deb/release|beta|debug/
+```
 
-* **Master**: SVG de **1024×1024**, diseño plano y simple, **sin texto**
-  (ilegible en pequeño). Elemento principal centrado ocupando ~60-70%.
-* **Zona segura Android**: el icono adaptativo recorta con máscaras
-  (círculo, squircle…); nada importante fuera del **círculo central de 66dp**
-  sobre los 108dp del lienzo. El glifo debe venir **sin fondo** para el
-  `foreground` (el fondo lo pone el color del adaptativo).
-* **Fondo a sangre**: el fondo debe llegar hasta el borde (el launcher
-  recorta, no añade).
-* **Variantes** (selector experimental): `default` (fondo marca + glifo
-  claro), `light` (fondo claro + glifo oscuro), `dark` (fondo casi negro +
-  glifo claro). Además capa **monocromo** (silueta a un color) para los
-  iconos temáticos de Android 13+ (reutiliza el `foreground`).
+El canal se deduce del sufijo de `version:` en pubspec.yaml
+(`26.09.28-release` → `release`, `-beta` → `beta`, `-debug` o sin
+sufijo → `debug`).
 
-Aplicar cambios al arte: `python3 packaging/icons/apply_artwork.py`
-(rasteriza con inkscape legacy + foregrounds + hicolor y copia el SVG
-escalable). `packaging/icons/generar_iconos.py` es una alternativa con
-cairosvg para legacy + hicolor.
+## 1. El icono: un solo PNG por plataforma
 
-### Dónde vive cada cosa
+## 1. El icono: un solo PNG por plataforma
+
+Release 26.09.28: un único icono, sin variantes claro/oscuro ni SVG.
+Si hay que cambiar el diseño, sustituir el PNG en su resolución y listo.
 
 | Pieza | Ruta |
 |---|---|
-| Vectores adaptativos (API 26+) | `android/.../res/mipmap-anydpi-v26/ic_launcher[_light\|_dark].xml` |
-| Glifo sin fondo (foreground) | `res/mipmap-<dpi>/ic_launcher_foreground[_light\|_dark].png` |
-| Fondos adaptativos | `res/values/colors.xml` (`ic_launcher_background[_light\|_dark]`) |
-| PNG legacy (API <26) | `res/mipmap-<mdpi…xxxhdpi>/ic_launcher[_light\|_dark].png` (48/72/96/144/192px) |
-| Aliases del selector | `AndroidManifest.xml` (`.LauncherLight`, `.LauncherDark`) |
-| Linux hicolor | `packaging/linux/icons/hicolor/<16…512>/apps/nphotos.png` |
-| Linux escalable + `.desktop` | `packaging/linux/icons/scalable/apps/nphotos.svg`, `packaging/linux/nphotos.desktop` |
-
-Regenerar los PNG tras cambiar el diseño: `python3 packaging/icons/apply_artwork.py`
-(o `flutter_launcher_icons` con el arte final).
-
-### Selector experimental de iconos
-
-El manifiesto declara `.LauncherLight`/`.LauncherDark` **deshabilitados**;
-la actividad principal sigue siendo el icono default. El futuro conmutador
-(Nexora: `AppIconVariant`) debe, vía platform channel:
-
-```kotlin
-val pm = context.packageManager
-// 1. Desactivar los tres componentes launcher:
-//    ".MainActivity", ".LauncherLight", ".LauncherDark"
-// 2. Activar solo el elegido:
-pm.setComponentEnabledSetting(
-    ComponentName(context, "com.nexora.nphotos.LauncherDark"),
-    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-    PackageManager.DONT_KILL_APP,
-)
-```
+| Android adaptativo (API 26+) | `android/.../res/mipmap-anydpi-v26/ic_launcher.xml` (fondo `@color/ic_launcher_background` + `foreground`) |
+| Android glifo + legacy | `res/mipmap-<mdpi…xxxhdpi>/ic_launcher_foreground.png` e `ic_launcher.png` (48/72/96/144/192px) |
+| Fondo adaptativo | `res/values/colors.xml` (`ic_launcher_background`) |
+| Linux hicolor | `packaging/linux/icons/hicolor/512x512/apps/nphotos.png` (el escritorio escala hacia abajo) |
+| `.desktop` | `packaging/linux/nphotos.desktop` |
 
 ## 2. APK Android
 
 ```bash
-# Debug (firma debug automática)
-flutter build apk --debug
-# Release por ABI (recomendado para distribuir)
-flutter build apk --release --split-per-abi
+./packaging/apk/build-apk.sh
 ```
+
+Copia los APK a `compilaciones/apk/<canal>/` como
+`nphotos_<versión>_<abi>.apk` (`debug`: APK único; `beta`/`release`:
+uno por ABI con `--split-per-abi`).
 
 **Firma release** (una vez):
 
@@ -84,7 +56,8 @@ no apto para Play Store). `applicationId`: `com.nexora.nphotos`.
 DEB_MAINTAINER="Nombre <email>" ./packaging/deb/build-deb.sh
 ```
 
-Genera `nphotos_<versión>_amd64.deb`: binario en `/usr/lib/nphotos`,
-enlace en `/usr/bin/nphotos`, `.desktop` en `/usr/share/applications` e
-iconos en `/usr/share/icons`. Instalar con `sudo dpkg -i nphotos_*_amd64.deb`
-(`Depends: libgtk-3-0`).
+Genera `compilaciones/deb/<canal>/nphotos_<versión>_amd64.deb`: binario en
+`/usr/lib/nphotos`, enlace en `/usr/bin/nphotos`, `.desktop` en
+`/usr/share/applications` e iconos en `/usr/share/icons`. Instalar con
+`sudo apt install ./nphotos_*_amd64.deb`
+(`Depends: libgtk-3-0 | libgtk-3-0t64, libblkid1, liblzma5, libglib2.0-0, libmpv2`).
