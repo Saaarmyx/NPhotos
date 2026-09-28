@@ -31,13 +31,14 @@ class PhotoGrid extends StatelessWidget {
   });
 
   /// Configuración usada por galería, favoritos y detalle de álbum.
+  /// Fotos casi pegadas (2px): parrilla a sangre.
   const PhotoGrid.photos({
     super.key,
     required this.itemCount,
     required this.itemBuilder,
     this.wideBreakpoint = NBreakpoints.mobile,
-    this.spacing = NSpacing.spaceXs,
-    this.padding = const EdgeInsets.all(NSpacing.spaceXs),
+    this.spacing = 2,
+    this.padding = const EdgeInsets.all(2),
   }) : compactColumns = 3,
        wideColumns = 5,
        childAspectRatio = 1.0;
