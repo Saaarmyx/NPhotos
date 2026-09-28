@@ -1,9 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import 'package:nexora_ui/nexora_ui.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../controllers/gallery_controller.dart';
+import '../../models/photo.dart';
 
 /// Nombres de mes en español para la cabecera del visor.
 const _kMonthsEs = [
@@ -94,10 +98,9 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
             _rotations[currentPhoto.id] =
                 ((_rotations[currentPhoto.id] ?? 0) + 1) % 4;
           }),
-          // TODO: implementar compartir (p. ej. con share_plus).
-          onShare: () {},
-          // TODO: implementar edición.
-          onEdit: () {},
+          onShare: () => _sharePhoto(currentPhoto),
+          // Sin onEdit en release: se omite el botón (el kit oculta
+          // acciones con callback nulo) hasta tener edición real.
           onDelete: () {
             widget.controller.moveToTrash(currentPhoto.id);
             Navigator.of(context).pop();
@@ -115,12 +118,25 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
             },
             itemBuilder: (context, index) {
               final photo = photos[index];
+              final turns = _rotations[photo.id] ?? 0;
+              if (photo.isVideo) {
+                return Center(
+                  child: RotatedBox(
+                    quarterTurns: turns,
+                    child: _VideoPage(
+                      key: ValueKey(photo.id),
+                      path: photo.path,
+                      active: index == _currentIndex,
+                    ),
+                  ),
+                );
+              }
               return InteractiveViewer(
                 minScale: 0.8,
                 maxScale: 4.0,
                 child: Center(
                   child: RotatedBox(
-                    quarterTurns: _rotations[photo.id] ?? 0,
+                    quarterTurns: turns,
                     child: Image.file(
                       File(photo.path),
                       fit: BoxFit.contain,
@@ -137,6 +153,106 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
           ),
         );
       },
+    );
+  }
+
+  Future<void> _sharePhoto(Photo photo) async {
+    try {
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(photo.path)], text: photo.title),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo compartir: $e')),
+      );
+    }
+  }
+}
+
+/// Página de vídeo del visor: reproduce con `media_kit` (Android + Linux).
+///
+/// Solo el vídeo visible ([active]) suena; al salir de página se pausa.
+class _VideoPage extends StatefulWidget {
+  final String path;
+  final bool active;
+
+  const _VideoPage({super.key, required this.path, required this.active});
+
+  @override
+  State<_VideoPage> createState() => _VideoPageState();
+}
+
+class _VideoPageState extends State<_VideoPage> {
+  late final Player _player;
+  late final VideoController _videoController;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _player = Player();
+    _videoController = VideoController(_player);
+    _open();
+  }
+
+  Future<void> _open() async {
+    await _player.open(Media(Uri.file(widget.path).toString()));
+    await _player.setPlaylistMode(PlaylistMode.single);
+    if (!mounted) return;
+    setState(() => _ready = true);
+    if (widget.active) _player.play();
+  }
+
+  @override
+  void didUpdateWidget(covariant _VideoPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_ready || widget.active == oldWidget.active) return;
+    if (widget.active) {
+      _player.play();
+    } else {
+      _player.pause();
+    }
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_ready) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
+    }
+    return GestureDetector(
+      onTap: () =>
+          _player.state.playing ? _player.pause() : _player.play(),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Center(child: Video(controller: _videoController)),
+          StreamBuilder<bool>(
+            stream: _player.stream.playing,
+            initialData: false,
+            builder: (context, snapshot) {
+              if (snapshot.data ?? false) {
+                return const SizedBox.shrink();
+              }
+              return const Center(
+                child: Icon(
+                  Icons.play_circle_outline,
+                  color: Colors.white70,
+                  size: 72,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }
