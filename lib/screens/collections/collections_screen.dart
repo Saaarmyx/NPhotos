@@ -1,4 +1,9 @@
 // lib/screens/collections/collections_screen.dart
+//
+// Solo [visibleCollectionKinds]: Vídeos y Papelera viven pineados en
+// Álbumes. Lugares agrupa por carpeta de origen (el modelo no trae GPS,
+// la carpeta es la única señal de procedencia real); Recientes ordena
+// por creación. El resto muestra su estado honesto.
 import 'package:flutter/material.dart';
 import 'package:nexora_ui/nexora_ui.dart';
 
@@ -25,34 +30,47 @@ class CollectionsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(NSpacing.spaceMd),
-      children: [
-        NSettingsSectionCard(
-          section: NSettingsSection(
-            title: 'Colecciones',
-            items: CollectionKind.values
-                .map(
-                  (kind) => NNavigationItem.standard(
-                    icon: kind.icon,
-                    title: kind.label,
-                    subtitle: kind.description,
-                    onTap: () => _open(context, kind),
-                  ),
-                )
-                .toList(),
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) => ListView(
+        padding: const EdgeInsets.all(NSpacing.spaceMd),
+        children: [
+          NSettingsSectionCard(
+            section: NSettingsSection(
+              title: 'Colecciones',
+              items: visibleCollectionKinds
+                  .map(
+                    (kind) => NNavigationItem.standard(
+                      icon: kind.icon,
+                      title: kind.label,
+                      subtitle: _subtitleFor(kind, controller),
+                      onTap: () => _open(context, kind),
+                    ),
+                  )
+                  .toList(),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
+  }
+
+  String _subtitleFor(CollectionKind kind, GalleryController controller) {
+    return switch (kind) {
+      CollectionKind.places =>
+        controller.placesGroups.isEmpty
+            ? 'Sin fotos todavía'
+            : '${controller.placesGroups.length} orígenes',
+      CollectionKind.recent =>
+        controller.photos.isEmpty
+            ? 'Nada reciente todavía'
+            : '${controller.photos.length} elementos',
+      _ => kind.description,
+    };
   }
 }
 
 /// Detalle de una colección especial.
-///
-/// Solo "Añadidos recientemente" tiene contenido real hoy (las fotos
-/// ordenadas por creación); el resto muestra su estado vacío honesto hasta
-/// que se implemente su lógica.
 class CollectionDetailScreen extends StatelessWidget {
   final GalleryController controller;
   final CollectionKind kind;
@@ -63,66 +81,20 @@ class CollectionDetailScreen extends StatelessWidget {
     required this.kind,
   });
 
-  Future<bool> _confirm(
-    BuildContext context, {
-    required String title,
-    required String message,
-  }) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
-    );
-    return result ?? false;
-  }
-
   @override
   Widget build(BuildContext context) {
+    // Vídeos/Papelera ya no viven aquí (pineados en Álbumes): si se llega
+    // por un índice desktop antiguo, se redirige al estado honesto.
     return Scaffold(
-      appBar: NSecondaryTopBar(
-        title: kind.label,
-        actions: [
-          if (kind == CollectionKind.trash)
-            AnimatedBuilder(
-              animation: controller,
-              builder: (context, _) => controller.trash.isEmpty
-                  ? const SizedBox.shrink()
-                  : IconButton(
-                      icon: const Icon(Icons.delete_sweep_outlined),
-                      tooltip: 'Vaciar papelera',
-                      onPressed: () async {
-                        final confirmed = await _confirm(
-                          context,
-                          title: 'Vaciar papelera',
-                          message:
-                              'Se eliminarán definitivamente todas las fotos de la papelera.',
-                        );
-                        if (confirmed) await controller.emptyTrash();
-                      },
-                    ),
-            ),
-        ],
-      ),
+      appBar: NSecondaryTopBar(title: kind.label),
       body: AnimatedBuilder(
         animation: controller,
         builder: (context, _) {
           if (kind == CollectionKind.recent) {
             return _RecentGrid(controller: controller);
           }
-          if (kind == CollectionKind.trash) {
-            return _TrashGrid(controller: controller, onConfirm: _confirm);
+          if (kind == CollectionKind.places) {
+            return _PlacesGrid(controller: controller);
           }
 
           return NEmptyState(
@@ -154,121 +126,72 @@ class _RecentGrid extends StatelessWidget {
     }
     return PhotoGrid.photos(
       itemCount: recent.length,
-      itemBuilder: (context, index) => PhotoTile(path: recent[index].path),
-    );
-  }
-}
-
-/// Papelera: restaurar o eliminar definitivamente por foto.
-class _TrashGrid extends StatelessWidget {
-  final GalleryController controller;
-  final Future<bool> Function(
-    BuildContext context, {
-    required String title,
-    required String message,
-  })
-  onConfirm;
-
-  const _TrashGrid({required this.controller, required this.onConfirm});
-
-  @override
-  Widget build(BuildContext context) {
-    final trash = controller.trash;
-    if (trash.isEmpty) {
-      return const NEmptyState(
-        icon: Icons.delete_outline,
-        title: 'Papelera vacía',
-      );
-    }
-    return PhotoGrid.photos(
-      itemCount: trash.length,
       itemBuilder: (context, index) {
-        final trashed = trash[index];
-        return _TrashCard(
-          photoPath: trashed.photo.path,
-          onRestore: () => controller.restoreFromTrash(trashed.photo.id),
-          onDelete: () async {
-            final confirmed = await onConfirm(
-              context,
-              title: 'Eliminar definitivamente',
-              message:
-                  'Se borrará el archivo "${trashed.photo.title}". No se puede deshacer.',
-            );
-            if (confirmed) {
-              await controller.deletePermanently(trashed.photo.id);
-            }
-          },
-        );
+        final photo = recent[index];
+        return PhotoTile(path: photo.path, isVideo: photo.isVideo);
       },
     );
   }
 }
 
-class _TrashCard extends StatelessWidget {
-  final String photoPath;
-  final VoidCallback onRestore;
-  final VoidCallback onDelete;
+/// Lugares: fotos agrupadas por carpeta de origen, con cabecera por grupo.
+class _PlacesGrid extends StatelessWidget {
+  final GalleryController controller;
 
-  const _TrashCard({
-    required this.photoPath,
-    required this.onRestore,
-    required this.onDelete,
-  });
+  const _PlacesGrid({required this.controller});
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        PhotoTile(path: photoPath),
-        Positioned(
-          left: NSpacing.space2xs,
-          right: NSpacing.space2xs,
-          bottom: NSpacing.space2xs,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _TrashAction(
-                icon: Icons.restore_from_trash_outlined,
-                tooltip: 'Restaurar',
-                onTap: onRestore,
+    final groups = controller.placesGroups;
+    if (groups.isEmpty) {
+      return const NEmptyState(
+        icon: Icons.place_outlined,
+        title: 'Sin lugares todavía',
+        subtitle: 'Tus carpetas de origen aparecerán aquí.',
+      );
+    }
+    final entries = groups.entries.toList();
+    return ListView.builder(
+      padding: const EdgeInsets.all(NSpacing.spaceMd),
+      itemCount: entries.length,
+      itemBuilder: (context, index) {
+        final entry = entries[index];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: NSpacing.spaceSm),
+              child: Text(
+                '${entry.key} · ${entry.value.length}',
+                style: TextStyle(
+                  fontFamily: NTypography.fontFamilyBase,
+                  fontWeight: NTypography.weightBold,
+                  fontSize: NTypography.sizeSm,
+                  color: context.nPrimaryTextColor,
+                ),
               ),
-              _TrashAction(
-                icon: Icons.delete_forever_outlined,
-                tooltip: 'Eliminar',
-                onTap: onDelete,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TrashAction extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onTap;
-
-  const _TrashAction({
-    required this.icon,
-    required this.tooltip,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(NSpacing.space2xs),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.6),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: Colors.white, size: 18),
-      ),
+            ),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              gridDelegate:
+                  const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 2,
+                    mainAxisSpacing: 2,
+                    childAspectRatio: 1.0,
+                  ),
+              itemCount: entry.value.length,
+              itemBuilder: (context, photoIndex) {
+                final photo = entry.value[photoIndex];
+                return PhotoTile(path: photo.path, isVideo: photo.isVideo);
+              },
+            ),
+            const SizedBox(height: NSpacing.spaceLg),
+          ],
+        );
+      },
     );
   }
 }
