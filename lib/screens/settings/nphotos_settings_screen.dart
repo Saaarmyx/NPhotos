@@ -17,6 +17,8 @@
 import 'package:flutter/material.dart';
 import 'package:nexora_ui/nexora_ui.dart';
 
+import 'nphotos_about_screen.dart';
+
 /// Datos de perfil compartidos (móvil + panel desktop).
 const nPhotosProfileData = UserProfileData(
   name: 'Nexora Labs',
@@ -35,21 +37,36 @@ const nPhotosAppInfo = NAboutAppInfo(
   buildNumber: '1',
 );
 
-/// Ruta móvil de ajustes: delegación directa al kit.
+/// Ruta móvil de ajustes: base del kit con "Acerca de" propio.
 ///
 /// No incluye [ResponsiveLayout] a propósito: esta ruta solo se empuja en
 /// móvil. En escritorio los ajustes viven en el panel lateral derecho.
+/// Se usa `nexoraBaseSection` solo para redirigir "Acerca de" a la
+/// pantalla funcional de NPhotos; el resto hereda los pushes del kit.
 class NPhotosSettingsScreen extends StatelessWidget {
   const NPhotosSettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // La sección "General" (Cuenta, Personalización, Acerca de) la aporta
-    // el kit. Si NexoraUi cambia su base o su layout móvil, esta pantalla
-    // lo hereda sin tocar NPhotos.
-    return const NSettingsScreen(
+    return NSettingsScreen(
       profileData: nPhotosProfileData,
       appInfo: nPhotosAppInfo,
+      appName: nPhotosAppInfo.appName,
+      nexoraBaseSection: NSettingsScreen.buildNexoraBaseSection(
+        onAccountTap: () => pushNPage(
+          context,
+          NAccountScreen(profileData: nPhotosProfileData),
+        ),
+        onPerformanceTap: () => pushNPage(
+          context,
+          const NPerformanceScreen(),
+        ),
+        onPersonalizationTap: () => pushNPage(
+          context,
+          const NPersonalizationScreen(experimentalLayout: true),
+        ),
+        onAboutTap: () => pushNPage(context, const NPhotosAboutScreen()),
+      ),
     );
   }
 }
