@@ -1,4 +1,5 @@
 // lib/controllers/gallery_controller.dart
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -49,18 +50,32 @@ class GalleryController extends ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
+  // Recarga dinámica: observación del disco + anti-solape de escaneos.
+  final List<StreamSubscription<FileSystemEvent>> _watchers = [];
+  Timer? _watchDebounce;
+  Duration _watchDebounceDuration = const Duration(seconds: 2);
+  bool _watching = false;
+  bool _fetching = false;
+  bool _disposed = false;
+
   // Derivados cacheados: se recalculan solo cuando cambian los datos.
   List<Photo>? _cachedFavorites;
   List<Album>? _cachedAlbums;
+  List<Photo>? _cachedVideos;
 
   void _invalidateCaches() {
     _cachedFavorites = null;
     _cachedAlbums = null;
+    _cachedVideos = null;
   }
 
   /// Retorna las fotos marcadas como favoritas
   List<Photo> get favoritePhotos =>
       _cachedFavorites ??= _photos.where((p) => p.isFavorite).toList();
+
+  /// Solo vídeos (por extensión). Vive pineado en Álbumes.
+  List<Photo> get videos =>
+      _cachedVideos ??= _photos.where((p) => p.isVideo).toList();
 
   /// Retorna las fotos agrupadas por carpeta (Álbumes)
   List<Album> get albums {
@@ -79,7 +94,66 @@ class GalleryController extends ChangeNotifier {
     return _cachedAlbums!;
   }
 
+  /// Nombres de carpeta que resuelven el pineado "Cámara".
+  static const cameraFolderNames = {'camera', 'cámara', 'camara', 'dcim'};
+
+  /// Nombres de carpeta que resuelven el pineado "Capturas".
+  static const screenshotsFolderNames = {
+    'screenshots',
+    'screenshot',
+    'capturas',
+    'captura',
+    'captures',
+    'screen shots',
+  };
+
+  /// Busca el álbum cuya carpeta coincide con [names] (insensible a
+  /// mayúsculas y tildes básicas). Null si no hay fotos de esa carpeta.
+  Album? findAlbumByFolderNames(Set<String> names) {
+    for (final album in albums) {
+      final folder = p.basename(album.path).toLowerCase();
+      if (names.contains(folder)) return album;
+    }
+    return null;
+  }
+
+  /// Álbum pineado "Cámara" (carpeta DCIM/Camera, etc.).
+  Album? get cameraAlbum => findAlbumByFolderNames(cameraFolderNames);
+
+  /// Álbum pineado "Capturas" (carpeta Screenshots/Capturas, etc.).
+  Album? get screenshotsAlbum =>
+      findAlbumByFolderNames(screenshotsFolderNames);
+
+  /// Rutas de carpetas ya pineadas (cámara/capturas) para excluirlas de la
+  /// parrilla general de álbumes y no duplicarlas.
+  Set<String> get pinnedAlbumPaths => {
+    if (cameraAlbum != null) cameraAlbum!.path,
+    if (screenshotsAlbum != null) screenshotsAlbum!.path,
+  };
+
+  /// Álbumes sin los pineados (lo que va debajo en la pantalla).
+  List<Album> get unpinnedAlbums =>
+      albums.where((a) => !pinnedAlbumPaths.contains(a.path)).toList();
+
+  /// "Lugares": fotos agrupadas por carpeta de origen (sin metadatos GPS
+  /// en el modelo, la carpeta es la única señal de procedencia real).
+  /// Ordenadas por cantidad descendente.
+  Map<String, List<Photo>> get placesGroups {
+    final groups = <String, List<Photo>>{};
+    for (final photo in _photos) {
+      final folder = p.basename(p.dirname(photo.path));
+      groups.putIfAbsent(folder, () => []).add(photo);
+    }
+    final entries = groups.entries.toList()
+      ..sort((a, b) => b.value.length.compareTo(a.value.length));
+    return Map.fromEntries(entries);
+  }
+
   Future<void> fetchPhotos() async {
+    // Anti-solape: el watcher, el pull-to-refresh y el resume pueden
+    // pedir recargas a la vez; solo un escaneo corre al mismo tiempo.
+    if (_fetching) return;
+    _fetching = true;
     _state = GalleryState.loading;
     _errorMessage = null;
     notifyListeners();
@@ -88,6 +162,7 @@ class GalleryController extends ChangeNotifier {
       final hasPermission = await _requestAndroidPermissions();
       if (!hasPermission) {
         _state = GalleryState.permissionDenied;
+        _fetching = false;
         notifyListeners();
         return;
       }
@@ -128,8 +203,62 @@ class GalleryController extends ChangeNotifier {
       _errorMessage = 'Error al cargar las fotos: $e';
       _state = GalleryState.error;
     } finally {
+      _fetching = false;
       notifyListeners();
     }
+  }
+
+  /// Observa las carpetas de origen y recarga sola cuando aparece, se
+  /// mueve o se borra un archivo. Con debounce para no escanear por cada
+  /// evento en ráfagas (p. ej. descargas múltiples o ráfagas de cámara).
+  /// Idempotente: llamar dos veces no duplica observadores.
+  Future<void> startWatching({
+    Duration debounce = const Duration(seconds: 2),
+  }) async {
+    if (_watching || _disposed) return;
+    _watching = true;
+    _watchDebounceDuration = debounce;
+    try {
+      final roots = await _photoService.existingRoots();
+      if (_disposed) return;
+      for (final dir in roots) {
+        try {
+          _watchers.add(
+            dir.watch(recursive: true).listen(
+              _onWatchEvent,
+              onError: (Object e) =>
+                  debugPrint('Watch error en ${dir.path}: $e'),
+            ),
+          );
+        } catch (e) {
+          debugPrint('No se pudo observar ${dir.path}: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('startWatching falló: $e');
+    }
+  }
+
+  void _onWatchEvent(FileSystemEvent event) {
+    if (_disposed) return;
+    _watchDebounce?.cancel();
+    _watchDebounce = Timer(_watchDebounceDuration, () {
+      if (!_disposed) fetchPhotos();
+    });
+  }
+
+  /// Recarga inmediata (pull-to-refresh, botón, resume).
+  Future<void> refresh() => fetchPhotos();
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _watchDebounce?.cancel();
+    for (final sub in _watchers) {
+      sub.cancel();
+    }
+    _watchers.clear();
+    super.dispose();
   }
 
   /// Elimina registros de favoritos/papelera de archivos que ya no existen.

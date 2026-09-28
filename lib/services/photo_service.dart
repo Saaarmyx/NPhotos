@@ -6,13 +6,29 @@ import 'package:path/path.dart' as p;
 import '../models/photo.dart';
 
 class PhotoService {
-  static const Set<String> supportedExtensions = {
+  static const Set<String> imageExtensions = {
     '.jpg',
     '.jpeg',
     '.png',
     '.webp',
     '.gif',
     '.heic',
+  };
+
+  static const Set<String> videoExtensions = {
+    '.mp4',
+    '.mov',
+    '.m4v',
+    '.3gp',
+    '.mkv',
+    '.webm',
+    '.avi',
+  };
+
+  /// Todos los formatos que la app descubre del disco (fotos + vídeos).
+  static const Set<String> supportedExtensions = {
+    ...imageExtensions,
+    ...videoExtensions,
   };
 
   /// Directorios raíz a escanear. Si es `null` se usan los de la plataforma.
@@ -31,6 +47,31 @@ class PhotoService {
       return _loadFromDirectories(_ubuntuDirs(), label: 'Ubuntu');
     }
     return [];
+  }
+
+  /// Raíces existentes, listas para observar con [Directory.watch].
+  /// Es la misma fuente que usa [loadPhotos]: lo que se detecte aquí es
+  /// lo que aparecerá en la galería tras recargar.
+  Future<List<Directory>> existingRoots() async {
+    final List<Directory> dirs;
+    if (roots != null) {
+      dirs = roots!;
+    } else if (Platform.isAndroid) {
+      dirs = _androidDirs();
+    } else if (Platform.isLinux) {
+      dirs = _ubuntuDirs();
+    } else {
+      return [];
+    }
+    final existing = <Directory>[];
+    for (final dir in dirs) {
+      try {
+        if (await dir.exists()) existing.add(dir);
+      } catch (_) {
+        continue;
+      }
+    }
+    return existing;
   }
 
   List<Directory> _ubuntuDirs() {
@@ -88,6 +129,7 @@ class PhotoService {
               row['modified'] as int,
             ),
             sizeInBytes: row['size'] as int,
+            isVideo: (row['isVideo'] as bool?) ?? false,
           ),
         )
         .toList();
@@ -106,7 +148,7 @@ class PhotoService {
           dirPath,
         ).listSync(recursive: true, followLinks: false);
         for (final entity in entities) {
-          if (!_isValidImageFile(entity)) continue;
+          if (!_isValidMediaFile(entity)) continue;
           final file = entity as File;
 
           FileStat stat;
@@ -123,6 +165,9 @@ class PhotoService {
             'created': stat.changed.millisecondsSinceEpoch,
             'modified': stat.modified.millisecondsSinceEpoch,
             'size': stat.size,
+            'isVideo': videoExtensions.contains(
+              p.extension(file.path).toLowerCase(),
+            ),
           });
         }
       } catch (e) {
@@ -132,8 +177,8 @@ class PhotoService {
     return rows;
   }
 
-  /// Helper para validar si un archivo es una imagen válida y NO oculta
-  static bool _isValidImageFile(FileSystemEntity entity) {
+  /// Helper para validar si un archivo es una foto/vídeo válido y NO oculto.
+  static bool _isValidMediaFile(FileSystemEntity entity) {
     if (entity is! File) return false;
 
     // 1. Obtener el nombre del archivo
@@ -150,7 +195,7 @@ class PhotoService {
       return false;
     }
 
-    // 4. Validar extensión permitida
+    // 4. Validar extensión permitida (fotos + vídeos)
     final ext = p.extension(entity.path).toLowerCase();
     if (!supportedExtensions.contains(ext)) return false;
 
