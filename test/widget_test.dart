@@ -34,10 +34,18 @@ void main() {
   });
 
   group('PhotoService', () {
-    test('supportedExtensions cubre formatos comunes y excluye otros', () {
+    test('imageExtensions cubre fotos y excluye otros', () {
+      expect(PhotoService.imageExtensions, contains('.jpg'));
+      expect(PhotoService.imageExtensions, contains('.png'));
+      expect(PhotoService.imageExtensions, isNot(contains('.mp4')));
+      expect(PhotoService.imageExtensions, isNot(contains('.txt')));
+    });
+
+    test('videoExtensions cubre vídeos y supported los une', () {
+      expect(PhotoService.videoExtensions, contains('.mp4'));
+      expect(PhotoService.videoExtensions, contains('.mov'));
       expect(PhotoService.supportedExtensions, contains('.jpg'));
-      expect(PhotoService.supportedExtensions, contains('.png'));
-      expect(PhotoService.supportedExtensions, isNot(contains('.mp4')));
+      expect(PhotoService.supportedExtensions, contains('.mp4'));
       expect(PhotoService.supportedExtensions, isNot(contains('.txt')));
     });
   });
@@ -78,10 +86,13 @@ void main() {
     await tester.pump();
 
     expect(find.text('Añadidos recientemente'), findsOneWidget);
-    expect(find.text('Papelera'), findsOneWidget);
+    expect(find.text('Lugares'), findsOneWidget);
+    // Vídeos y Papelera viven pineados en Álbumes, no en Colecciones.
+    expect(find.text('Vídeos'), findsNothing);
+    expect(find.text('Papelera'), findsNothing);
   });
 
-  testWidgets('Ajustes en móvil muestra las secciones de NPhotos', (
+  testWidgets('Ajustes en móvil muestra solo la base del kit', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(360, 740);
@@ -94,16 +105,13 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Nube'), findsOneWidget);
-    expect(find.text('Organización inteligente'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Explorar y compartir'),
-      300,
-    );
-    expect(find.text('Explorar y compartir'), findsOneWidget);
+    // Release: sin secciones propias (eran botones muertos).
+    // Solo la sección base aportada por el kit.
     await tester.scrollUntilVisible(find.text('General'), 300);
-    // Sección base aportada por el kit.
     expect(find.text('General'), findsOneWidget);
+    expect(find.text('Nube'), findsNothing);
+    expect(find.text('Organización inteligente'), findsNothing);
+    expect(find.text('Explorar y compartir'), findsNothing);
   });
 
   testWidgets('Ajustes en desktop usa el contenido del kit', (
@@ -120,7 +128,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(NSettingsContent), findsOneWidget);
-    expect(find.text('Nube'), findsOneWidget);
+    expect(find.text('General'), findsOneWidget);
   });
 
   testWidgets('NPhotosApp en desktop usa NDesktopLayout', (
@@ -136,25 +144,33 @@ void main() {
 
     expect(find.byType(NDesktopLayout), findsOneWidget);
     expect(find.byType(NDesktopSidebar), findsOneWidget);
-    // Mismos destinos que en móvil, más las opciones de colecciones.
+    // Sidebar: Fotos, Álbumes, Favoritos + contenido de Colecciones
+    // aplanado (sin entrada padre). Topbar de escritorio visible.
     expect(find.byIcon(Icons.photo), findsOneWidget);
     expect(find.byIcon(Icons.photo_album_outlined), findsOneWidget);
     expect(find.byIcon(Icons.favorite_border), findsOneWidget);
-    expect(find.byIcon(Icons.videocam_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+    expect(find.byIcon(Icons.place_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.access_time_outlined), findsOneWidget);
+    expect(find.text('Colecciones'), findsNothing);
+    expect(find.byIcon(Icons.videocam_outlined), findsNothing);
+    expect(find.byIcon(Icons.delete_outline), findsNothing);
+    expect(find.byType(NDesktopTopBar), findsOneWidget);
   });
 
   testWidgets('NPhotoViewer deja altura al contenido y pie compacto', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: NPhotoViewer(
           title: 'Septiembre 27, 2026',
           subtitle: '15:34',
           // Hijo que expande como el PageView real (ColoredBox sin hijo
           // colapsa a cero por sí solo y no sirve para esta regresión).
-          child: SizedBox.expand(
+          onShare: () {},
+          onDelete: () {},
+          onFavoriteToggle: () {},
+          child: const SizedBox.expand(
             key: Key('viewer-body'),
             child: ColoredBox(color: Colors.red),
           ),
@@ -169,9 +185,9 @@ void main() {
     final bodySize = tester.getSize(find.byKey(const Key('viewer-body')));
     expect(bodySize.height, greaterThan(0));
 
-    // Orden de acciones: compartir, editar, eliminar, favorito.
+    // Acciones con callback se muestran; sin callback (Editar) se oculta.
     expect(find.byTooltip('Compartir'), findsOneWidget);
-    expect(find.byTooltip('Editar'), findsOneWidget);
+    expect(find.byTooltip('Editar'), findsNothing);
     expect(find.byTooltip('Eliminar'), findsOneWidget);
     expect(find.byTooltip('Favorito'), findsOneWidget);
   });

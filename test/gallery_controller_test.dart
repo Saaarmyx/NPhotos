@@ -47,6 +47,60 @@ void main() {
       );
     });
 
+    test('los vídeos se marcan con isVideo', () async {
+      await image('a.jpg');
+      final mp4 = File(p.join(tmp.path, 'clip.mp4'));
+      await mp4.writeAsBytes(List.filled(16, 1));
+
+      final c = controller();
+      await c.fetchPhotos();
+
+      expect(c.state, GalleryState.loaded);
+      expect(c.videos.map((v) => v.title).toSet(), {'clip.mp4'});
+      expect(c.videos.single.isVideo, isTrue);
+      expect(
+        c.photos.where((photo) => !photo.isVideo).map((p) => p.title).toSet(),
+        {'a.jpg'},
+      );
+    });
+
+    test('resuelve pineados de cámara y capturas por carpeta', () async {
+      final cameraDir = Directory(p.join(tmp.path, 'Camera'));
+      await cameraDir.create();
+      await File(
+        p.join(cameraDir.path, 'shot.jpg'),
+      ).writeAsBytes(List.filled(16, 1));
+      final shotsDir = Directory(p.join(tmp.path, 'Screenshots'));
+      await shotsDir.create();
+      await File(
+        p.join(shotsDir.path, 'shot.png'),
+      ).writeAsBytes(List.filled(16, 1));
+
+      final c = controller();
+      await c.fetchPhotos();
+
+      expect(c.cameraAlbum?.name, 'Camera');
+      expect(c.screenshotsAlbum?.name, 'Screenshots');
+      expect(c.unpinnedAlbums, isEmpty);
+      expect(c.placesGroups.keys.toSet(), {'Camera', 'Screenshots'});
+    });
+
+    test('el watcher recarga solo al aparecer un archivo nuevo', () async {
+      final c = controller();
+      await c.fetchPhotos();
+      expect(c.photos, isEmpty);
+
+      await c.startWatching(debounce: const Duration(milliseconds: 100));
+      await image('nueva.jpg');
+
+      await Future.delayed(const Duration(seconds: 2));
+      expect(
+        c.photos.map((photo) => photo.title).toSet(),
+        {'nueva.jpg'},
+      );
+      c.dispose();
+    });
+
     test('el favorito persiste entre instancias', () async {
       final file = await image('a.jpg');
 
