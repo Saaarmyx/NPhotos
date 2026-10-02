@@ -1,5 +1,6 @@
+import 'package:NexoraCore/NexoraCore.dart';
 import 'package:flutter/material.dart';
-import 'package:nexora_ui/nexora_ui.dart';
+import 'package:NexoraUi/NexoraUi.dart';
 
 import '../controllers/gallery_controller.dart';
 import '../controllers/selection_controller.dart';
@@ -8,7 +9,6 @@ import '../services/local_store.dart';
 import '../screens/gallery/gallery_screen.dart';
 import '../screens/albums/albums_screen.dart';
 import '../screens/collections/collections_screen.dart';
-import '../screens/settings/nphotos_permissions.dart';
 import '../screens/settings/nphotos_settings_screen.dart';
 import '../utils/photo_viewer.dart';
 import '../widgets/album_actions_sheet.dart';
@@ -17,12 +17,20 @@ import '../models/collection.dart';
 
 class NPhotosApp extends StatelessWidget {
   final LocalStore? store;
+  final CorePermissions permissions;
 
-  const NPhotosApp({super.key, this.store});
+  const NPhotosApp({
+    super.key,
+    required this.permissions,
+    this.store,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return NAppShell(title: 'NPhotos', home: NPhotosHome(store: store));
+    return NAppShell(
+      title: 'NPhotos',
+      home: NPhotosHome(store: store, permissions: permissions),
+    );
   }
 }
 
@@ -61,7 +69,14 @@ List<NNavigationDestination> get _sidebarItems => [
 class NPhotosHome extends StatefulWidget {
   final LocalStore? store;
 
-  const NPhotosHome({super.key, this.store});
+  /// Servicio de permisos compartido por todas las rutas de la app.
+  final CorePermissions permissions;
+
+  const NPhotosHome({
+    super.key,
+    required this.permissions,
+    this.store,
+  });
 
   @override
   State<NPhotosHome> createState() => _NPhotosHomeState();
@@ -88,6 +103,11 @@ class _NPhotosHomeState extends State<NPhotosHome>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _galleryController = GalleryController();
+    // El popup se lee del almacén antes de que la UI se suscriba, y a
+    // partir de ahí se guarda solo en cada cambio. Sin store (tests que
+    // construyen el app a pelo) se queda con los valores de fábrica.
+    final store = widget.store;
+    if (store != null) store.applyViewPreferences(_galleryController);
     _galleryController.fetchPhotos();
     // Recarga dinámica: archivos nuevos aparecen solos, sin recompilar.
     _galleryController.startWatching();
@@ -100,7 +120,7 @@ class _NPhotosHomeState extends State<NPhotosHome>
     if (!mounted || store == null || store.onboardingDone()) return;
     await startNOnboarding(
       context,
-      defaultAccent: NColors.photosAccent,
+      defaultAccent: NAccentColors.photos,
       defaultAccentName: 'NPhotos',
       onCompleted: () => store.saveOnboarding(),
     );
@@ -124,7 +144,10 @@ class _NPhotosHomeState extends State<NPhotosHome>
   }
 
   void _openSettingsMobile() {
-    pushNPage(context, const NPhotosSettingsScreen());
+    pushNPage(
+      context,
+      NPhotosSettingsScreen(permissions: widget.permissions),
+    );
   }
 
   void _toggleSettingsDesktop() {
@@ -478,7 +501,7 @@ class _NPhotosHomeState extends State<NPhotosHome>
   /// item, el panel desktop lo hereda sin copiar nada.
   NSettingsSection _desktopBaseSection() {
     return NSettingsScreen.buildNexoraBaseSection(
-      onAccountTap: () => _openPanelPage('account'),
+      appName: 'NPhotos',
       onPerformanceTap: () => _openPanelPage('performance'),
       onPersonalizationTap: () => _openPanelPage('personalization'),
       onAboutTap: () => _openPanelPage('about'),
@@ -495,10 +518,12 @@ class _NPhotosHomeState extends State<NPhotosHome>
     switch (_currentPanel) {
       case 'account':
         return NSidePanel(
-          title: 'Cuenta',
+          title: 'NCloud',
           onBack: _backPanel,
           onClose: _toggleSettingsDesktop,
-          child: const NAccountContent(profileData: nPhotosProfileData),
+          // `NCloudContent` y no `NCloudScreen`: dentro de un panel no
+          // se empuja una pantalla con su propia barra.
+          child: NCloudContent(profile: nPhotosProfileData),
         );
       case 'performance':
         return NSidePanel(
@@ -550,7 +575,9 @@ class _NPhotosHomeState extends State<NPhotosHome>
           title: 'Gestión de permisos',
           onBack: _backPanel,
           onClose: _toggleSettingsDesktop,
-          child: const NPhotosPermissionsContent(),
+          child: CorePermissionsContent(
+            permissions: widget.permissions,
+          ),
         );
       case 'report':
         return NSidePanel(
