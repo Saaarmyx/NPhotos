@@ -7,6 +7,18 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Permisos que `CorePermissions` declara en NexoraCore pero que el
+         manifiesto no pedia. Sin declararlos aqui Android los deniega en
+         silencio: `status()` devuelve `denied` para siempre y el usuario
+         ve un permiso que no puede activar de ninguna manera. -->
+
+    <!-- GPS de los metadatos EXIF (`mediaLocationPermission`). -->
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
+
+    <!-- Ubicacion del dispositivo (`locationPermission`). -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
     <application
         android:label="NPhotos"
         android:name="${applicationName}"
