@@ -7,9 +7,15 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+// `ThumbBox` viene del barrel de NexoraCore: los tamaños de miniatura
+// son una decisión de presentación compartida entre las dos apps.
+import 'package:NexoraCore/NexoraCore.dart';
+
 import '../models/photo.dart';
 import '../services/local_store.dart';
-import '../services/photo_service.dart';
+import '../services/media_service.dart';
+import '../services/native_media_index.dart';
+import '../services/photo_repository.dart';
 import '../services/private_vault.dart';
 
 enum GalleryState { initial, permissionDenied, loading, loaded, error }
@@ -99,16 +105,155 @@ class AlbumPin {
   String get albumPath => id.substring('album:'.length);
 }
 
+/// Estado completo del popup de la topbar (⋮), en una sola pieza.
+///
+/// Vive aquí y no en el servicio de persistencia para evitar un ciclo:
+/// el servicio necesita los enums del controller, así que si el estado
+/// viviera allí el controller no podría importarlo. Con el estado aquí,
+/// los dos dependen solo de este archivo.
+@immutable
+class GalleryViewState {
+  final GallerySort sort;
+  final GalleryViewMode viewMode;
+  final GalleryFilter filter;
+  final AlbumsViewMode albumsViewMode;
+  final CollectionsViewMode collectionsViewMode;
+  final CollectionsSort collectionsSort;
+  final bool hidePins;
+  final bool hideAlbums;
+  final bool hideSystem;
+  final bool hideCovers;
+
+  const GalleryViewState({
+    required this.sort,
+    required this.viewMode,
+    required this.filter,
+    required this.albumsViewMode,
+    required this.collectionsViewMode,
+    required this.collectionsSort,
+    required this.hidePins,
+    required this.hideAlbums,
+    required this.hideSystem,
+    required this.hideCovers,
+  });
+
+  /// Defaults de fábrica: lo que ve alguien que abre la app por primera.
+  const GalleryViewState.fresh()
+      : sort = GallerySort.captureDay,
+        viewMode = GalleryViewMode.byDate,
+        filter = GalleryFilter.all,
+        albumsViewMode = AlbumsViewMode.grid,
+        collectionsViewMode = CollectionsViewMode.compact,
+        collectionsSort = CollectionsSort.az,
+        hidePins = false,
+        hideAlbums = false,
+        hideSystem = false,
+        hideCovers = false;
+
+  /// Lo que hay ahora mismo en el controller.
+  factory GalleryViewState.of(GalleryController c) => GalleryViewState(
+        sort: c.sort,
+        viewMode: c.viewMode,
+        filter: c.filter,
+        albumsViewMode: c.albumsViewMode,
+        collectionsViewMode: c.collectionsViewMode,
+        collectionsSort: c.collectionsSort,
+        hidePins: c.hidePins,
+        hideAlbums: c.hideAlbums,
+        hideSystem: c.hideSystem,
+        hideCovers: c.hideCovers,
+      );
+
+  /// Claves de almacenamiento. Se guardan enums por su `.name`.
+  Map<String, Object?> toMap() => {
+        'sort': sort,
+        'view_mode': viewMode,
+        'filter': filter,
+        'albums_view_mode': albumsViewMode,
+        'collections_view_mode': collectionsViewMode,
+        'collections_sort': collectionsSort,
+        'hide_pins': hidePins,
+        'hide_albums': hideAlbums,
+        'hide_system': hideSystem,
+        'hide_covers': hideCovers,
+      };
+}
+
+/// Qué se pinan en la primera carga, cuando el usuario no ha elegido nada.
+///
+/// Existía una sola política implícita: Cámara, Capturas y —si faltaban—
+/// los dos álbumes con más fotos. Ese relleno resolvía un problema que
+/// no era real (una pantalla de álbumes vacía es un estado legítimo) y
+/// rompía dos cosas:
+///
+/// - **Determinismo**: elegía entre álbumes empatados por número de fotos
+///   según el orden en que el escáner los entregó, así que el mismo disco
+///   podía pinear un álbum u otro según la máquina.
+/// - **Intención del usuario**: el resultado se guardaba como si el
+///   usuario lo hubiera elegido, y a partir de ahí era irreversible sin
+///   entrar a los ajustes.
+enum NPinSeedPolicy {
+  /// No se pinan nada. La parrilla arranca completa.
+  ///
+  /// Es la política por defecto: lo que no elige el usuario no se
+  /// inventa.
+  none,
+
+  /// Solo las carpetas con nombre propio —Cámara, Capturas— si existen.
+  ///
+  /// Determinista: dependen del nombre de la carpeta, no del orden del
+  /// escaneo ni de cuántas fotos tenga cada una.
+  wellKnown,
+
+  /// [wellKnown] y, si sigue habiendo huecos, los álbumes con más fotos
+  /// hasta [GalleryController.maxPins].
+  ///
+  /// Desempate por ruta, no por orden de entrada: con todos los álbumes
+  /// empatados el resultado es el mismo en cualquier máquina.
+  ///
+  /// Opt-in: rellena la pantalla, pero siembra estado que el usuario no
+  /// pidió.
+  bySize,
+}
+
 class GalleryController extends ChangeNotifier {
-  final PhotoService _photoService;
+  final PhotoRepository _repo;
   LocalStore? _store;
 
   /// Directorio de la carpeta privada. Solo para tests; en producción
   /// se resuelve vía `path_provider` (soporte de la app).
   final Directory? privateDirOverride;
 
-  GalleryController({PhotoService? photoService, this._store, this.privateDirOverride})
-    : _photoService = photoService ?? PhotoService();
+  /// Servicios de medios de `NexoraCore`: metadatos EXIF, agrupación por
+  /// día y miniaturas, todo en isolate con el motor nativo en Rust.
+  ///
+  /// El servicio decide internamente si hay `.so` o hay que usar la
+  /// sonda de Dart, así que el controlador no pregunta nunca: pide y
+  /// recibe lo que haya.
+  final MediaService media;
+
+  /// Metadatos ya cargados, por ruta. Se rellenan en [loadMedia] y se
+  /// consultan al pintar, para no disparar una lectura por `build`.
+  final Map<String, PhotoMetadata> _metadata = {};
+
+  /// Miniaturas por ruta original. El valor es la ruta del JPEG.
+  final Map<String, String> _thumbnails = {};
+
+  /// Índice nativo de medios (redb compartido con NFiles).
+  /// Hidratación instantánea al arrancar: puebla la grilla ANTES del primer frame.
+  NativeMediaIndex? _nativeIndexCache;
+
+  GalleryController({
+    PhotoRepository? photos,
+    this._store,
+    this.privateDirOverride,
+    MediaService? media,
+    this.pinSeedPolicy = NPinSeedPolicy.wellKnown,
+  })  : media = media ?? MediaService(),
+        _repo = photos ?? PhotoRepository();
+
+  /// Política de siembra de pines. Ver [NPinSeedPolicy].
+  final NPinSeedPolicy pinSeedPolicy;
 
   GalleryState _state = GalleryState.initial;
   GalleryState get state => _state;
@@ -124,6 +269,76 @@ class GalleryController extends ChangeNotifier {
 
   // Preferencias de la topbar (popup ⋮): orden, vista y filtro + búsqueda.
   GallerySort _sort = GallerySort.captureDay;
+  /// `true` si el motor nativo de Rust está disponible.
+  ///
+  /// Solo para diagnóstico y para decidir si se avisa de que se va más
+  /// despacio. La galería funciona igual sin él.
+  bool get hasNativeMediaEngine => media.hasNativeEngine;
+
+  /// Motivo por el que el motor no está, o `null`.
+  String? get mediaUnavailableReason => media.unavailableReason;
+
+  /// Metadatos de [path], si ya se cargaron.
+  PhotoMetadata? metadataOf(String path) => _metadata[path];
+
+  /// Miniatura de [path] (ruta del JPEG), si ya se generó.
+  String? thumbnailOf(String path) => _thumbnails[path];
+
+  /// Índice nativo de medios (redb). Se inicializa perezosamente al primer uso.
+  NativeMediaIndex get _nativeIndex {
+    _nativeIndexCache ??= NativeMediaIndex();
+    return _nativeIndexCache!;
+  }
+
+  /// Carga metadatos, agrupación y miniaturas de las fotos visibles.
+  ///
+  /// Todo va a un isolate: leer la cabecera EXIF de miles de fotos son
+  /// segundos, y en el isolate principal serían frames congelados.
+  ///
+  /// Es idempotente y no propaga errores: sin `.so` la galería se queda
+  /// con la sonda de Dart, y sin ninguna de las dos se queda sin
+  /// metadatos, que es un estado válido.
+  Future<void> loadMedia({int boxPx = ThumbBox.grid}) async {
+    final paths = [for (final p in _photos) p.path];
+    if (paths.isEmpty) return;
+
+    try {
+      final meta = await media.loadMetadata(paths);
+      if (_disposed) return;
+      _metadata
+        ..clear()
+        ..addAll(meta);
+
+      final thumbs = await media.loadThumbnails(
+        paths,
+        boxPx: boxPx,
+      );
+      if (_disposed) return;
+      _thumbnails
+        ..clear()
+        ..addAll(thumbs);
+    } catch (e) {
+      // Degradar, no romper: la galería sin metadatos es usable.
+      debugPrint('loadMedia degradó a la sonda de Dart: $e');
+    }
+    if (!_disposed) notifyListeners();
+  }
+
+  /// Secciones por día para la vista agrupada de la galería.
+  Future<List<GallerySection>> sectionsByDay() async {
+    final paths = [for (final p in _photos) p.path];
+    if (paths.isEmpty) return const [];
+    return media.groupByDay(paths);
+  }
+
+  /// Aplica el perfil de rendimiento de `CorePerformance` al motor.
+  ///
+  /// `0` gama baja, `1` media, `2` alta. Hay que llamarlo antes de la
+  /// primera tanda de medios, o el motor trabaja con su perfil por
+  /// defecto y en gama baja no recorta la caché.
+  void applyPerformanceProfile(int profileId) =>
+      media.setPerformanceProfile(profileId);
+
   GallerySort get sort => _sort;
 
   GalleryViewMode _viewMode = GalleryViewMode.byDate;
@@ -222,6 +437,26 @@ class GalleryController extends ChangeNotifier {
     if (_collectionsSort == value) return;
     _collectionsSort = value;
     notifyListeners();
+  }
+
+  /// Restaura de golpe todo el estado del popup (orden, vista, filtro y
+  /// secciones ocultas) **sin** notificar.
+  ///
+  /// Se llama al arrancar, antes de que la UI se suscriba: notificar
+  /// ahí solo provocaría un repintado de una pantalla que todavía no
+  /// existe. Los setters individuales se siguen usando para los cambios
+  /// que sí deben recomputar cachés (`setFilter` invalida, por ejemplo).
+  void restoreViewState(GalleryViewState state) {
+    _sort = state.sort;
+    _viewMode = state.viewMode;
+    _filter = state.filter;
+    _albumsViewMode = state.albumsViewMode;
+    _collectionsViewMode = state.collectionsViewMode;
+    _collectionsSort = state.collectionsSort;
+    _hidePins = state.hidePins;
+    _hideAlbums = state.hideAlbums;
+    _hideSystem = state.hideSystem;
+    _hideCovers = state.hideCovers;
   }
 
   /// Ordena una lista por título según [collectionsSort] (A→Z o Z→A).
@@ -613,8 +848,11 @@ class GalleryController extends ChangeNotifier {
     }
     try {
       if (!store.hasPins()) {
+        // Se siembra pero **no** se guarda: si se guardara, la siguiente
+        // carga lo leería como elección del usuario y la siembra dejaría
+        // de ser reevaluable. `hasPins()` sigue dando falso, así que la
+        // política se reaplica mientras el usuario no toque nada.
         _pinnedIds = _defaultPins();
-        await store.savePinnedIds(_pinnedIds);
       } else {
         final stored = store.pinnedIds().take(maxPins).toList();
         if (_isLegacyDefaults(stored)) {
@@ -636,46 +874,48 @@ class GalleryController extends ChangeNotifier {
     return a.length == b.length && a.containsAll(b);
   }
 
-  /// Primera instalación: 2 pines, Cámara y Capturas.
+  /// Primera instalación: siembra según [pinSeedPolicy].
   ///
-  /// Si las carpetas con esos nombres no existen (típico en escritorio o
-  /// con DCIM plano), cae a los dos álbumes más grandes para que el
-  /// usuario siempre vea 2 pines y no una pantalla vacía.
+  /// No muta el estado de los álbumes ni depende del orden en que los
+  /// entregó el escáner. Es una lista nueva cada vez, y el desempate de
+  /// [bySize] es por ruta, no por posición de entrada.
   List<String> _defaultPins() {
+    if (pinSeedPolicy == NPinSeedPolicy.none) return const [];
+
     final used = <String>{};
     final defaults = <String>[];
 
-    void addFirst(Iterable<Album> candidates) {
-      for (final album in candidates) {
-        if (used.contains(album.path)) continue;
-        used.add(album.path);
-        defaults.add('album:${album.path}');
-        return;
+    void add(String? path) {
+      if (path == null || !used.add(path)) return;
+      defaults.add('album:$path');
+    }
+
+    add(cameraAlbum?.path);
+    add(screenshotsAlbum?.path);
+
+    if (pinSeedPolicy == NPinSeedPolicy.bySize) {
+      for (final album in _albumsBySize()) {
+        if (defaults.length >= 2) break;
+        add(album.path);
       }
     }
 
-    if (cameraAlbum != null) {
-      used.add(cameraAlbum!.path);
-      defaults.add('album:${cameraAlbum!.path}');
-    }
-    if (screenshotsAlbum != null) {
-      used.add(screenshotsAlbum!.path);
-      defaults.add('album:${screenshotsAlbum!.path}');
-    }
-    // Fallback: los 2 álbumes con más fotos.
-    if (defaults.length < 2) {
-      addFirst(_albumsBySize());
-    }
-    if (defaults.length < 2) {
-      addFirst(_albumsBySize());
-    }
     return defaults.take(maxPins).toList();
   }
 
   /// Álbumes ordenados por cantidad de fotos (mayor primero).
+  ///
+  /// El desempate es **por ruta**, no por posición de entrada. Sin esto,
+  /// con todos los álbumes empatados el resultado dependía del orden en
+  /// que el escáner los entregó, que cambia entre máquinas y entre
+  /// motors: el mismo disco pineaba un álbum u otro.
   List<Album> _albumsBySize() {
     final list = List<Album>.of(albums)
-      ..sort((a, b) => b.photos.length.compareTo(a.photos.length));
+      ..sort((a, b) {
+        final bySize = b.photos.length.compareTo(a.photos.length);
+        if (bySize != 0) return bySize;
+        return a.path.compareTo(b.path);
+      });
     return list;
   }
 
@@ -819,12 +1059,14 @@ class GalleryController extends ChangeNotifier {
     try {
       final vault = PrivateVault(await _vaultDir());
       final files = await vault.files();
-      final service = PhotoService(
-        roots: [vault.dir],
-        // La bóveda no se observa: es pequeña y se recarga tras cada
-        // movimiento.
-      );
-      final scanned = await service.loadPhotos();
+      // La bóveda se lee por el mismo repositorio, apuntando a su
+      // carpeta. No se observa: es pequeña y se recarga tras cada
+      // movimiento.
+      // La bóveda se lee por el mismo repositorio, apuntando a su
+      // carpeta. No se observa: es pequeña y se recarga tras cada
+      // movimiento.
+      final reader = PhotoRepository(roots: [vault.dir.path]);
+      final scanned = await reader.loadPhotos();
       final byPath = {for (final s in scanned) s.path: s};
       _private = [
         for (final file in files)
@@ -888,7 +1130,7 @@ class GalleryController extends ChangeNotifier {
       if (originDir != null) {
         targetDir = Directory(originDir);
       } else {
-        final roots = await _photoService.existingRoots();
+        final roots = await _repo.existingRoots();
         if (roots.isEmpty) return;
         targetDir = roots.first;
       }
@@ -913,10 +1155,41 @@ class GalleryController extends ChangeNotifier {
   Set<String> _lastInsertedIds = {};
   Set<String> get lastInsertedIds => _lastInsertedIds;
 
-  /// Hidrata la grilla desde el snapshot local para apertura en ~0ms.
+  /// Hidrata la grilla desde el índice nativo (redb) para apertura en ~0ms.
+  /// Si no hay motor, cae al snapshot de SharedPreferences.
   /// No toca el estado de carga: si hay caché, pasa directo a loaded.
   Future<void> hydrateFromCache() async {
     if (_photos.isNotEmpty || _state == GalleryState.loaded) return;
+
+    // 1) Intento rápido: índice nativo (redb compartido con NFiles).
+    try {
+      final store = _store ??= await LocalStore.load();
+      final favoriteIds = store.favoriteIds();
+      final trashedAt = store.trashedAt();
+
+      // Abre el índice y hidrata (memcpy desde redb, <50ms).
+      final indexOpened = await _nativeIndex.open();
+      if (indexOpened) {
+        final nativePhotos = _nativeIndex.hydrate(favoriteIds: favoriteIds);
+        if (nativePhotos.isNotEmpty) {
+          // Filtrar papelera
+          final cached = nativePhotos
+              .where((p) => !trashedAt.containsKey(p.path))
+              .toList();
+          if (cached.isNotEmpty) {
+            _photos = cached;
+            _invalidateCaches();
+            _state = GalleryState.loaded;
+            notifyListeners();
+            return; // ¡Listo! La grilla pinta al instante.
+          }
+        }
+      }
+    } catch (_) {
+      // Silencioso: degradamos al snapshot local.
+    }
+
+    // 2) Fallback: snapshot de SharedPreferences (legado).
     try {
       _store ??= await LocalStore.load();
     } catch (_) {
@@ -943,9 +1216,9 @@ class GalleryController extends ChangeNotifier {
           ),
           sizeInBytes: 0,
           isFavorite: favoriteIds.contains(path),
-          isVideo: PhotoService.videoExtensions.any(
-            (ext) => path.toLowerCase().endsWith(ext),
-          ),
+          // La familia la decide el núcleo, no una lista de extensiones
+          // duplicada en la app.
+          isVideo: kindForPath(path) == FileKind.video,
         ),
       );
     }
@@ -991,7 +1264,7 @@ class GalleryController extends ChangeNotifier {
         _store = null;
       }
 
-      final loaded = await _photoService.loadPhotos();
+      final loaded = await _repo.loadPhotos();
       final favoriteIds = _store?.favoriteIds() ?? {};
       final trashedAt = _store?.trashedAt() ?? {};
 
@@ -1028,6 +1301,11 @@ class GalleryController extends ChangeNotifier {
       await _loadAlbumPrefs();
       await loadPrivate();
       await _saveSnapshot(nextPhotos);
+
+      // Persistir al índice nativo (redb) para hidratación instantánea la próxima vez.
+      // Se hace en background sin bloquear: si falla, la próxima carga usa el snapshot.
+      unawaited(_persistToNativeIndex(nextPhotos));
+
       _state = GalleryState.loaded;
     } catch (e) {
       _errorMessage = 'Error al cargar las fotos: $e';
@@ -1049,7 +1327,7 @@ class GalleryController extends ChangeNotifier {
     _watching = true;
     _watchDebounceDuration = debounce;
     try {
-      final roots = await _photoService.existingRoots();
+      final roots = await _repo.existingRoots();
       if (_disposed) return;
       for (final dir in roots) {
         try {
@@ -1132,6 +1410,21 @@ class GalleryController extends ChangeNotifier {
       ]);
     } catch (e) {
       debugPrint('No se pudo guardar snapshot: $e');
+    }
+  }
+
+  /// Persiste las fotos al índice nativo (redb) para hidratación instantánea.
+  /// No bloquea: errores se silencian porque el snapshot local ya garantiza
+  /// arranque rápido aunque el índice nativo falle.
+  Future<void> _persistToNativeIndex(List<Photo> photos) async {
+    if (photos.isEmpty) return;
+    try {
+      final indexOpened = await _nativeIndex.open();
+      if (!indexOpened) return;
+      final roots = await _repo.existingRoots();
+      _nativeIndex.persist(photos, roots);
+    } catch (e) {
+      debugPrint('No se pudo persistir al índice nativo: $e');
     }
   }
 
