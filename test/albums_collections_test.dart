@@ -1,18 +1,19 @@
+import 'photo_repo_helper.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nexora_ui/nexora_ui.dart';
-import 'package:nphotos/app/nphotos_app.dart';
-import 'package:nphotos/controllers/gallery_controller.dart';
-import 'package:nphotos/controllers/selection_controller.dart';
-import 'package:nphotos/models/photo.dart';
-import 'package:nphotos/screens/albums/album_detail_screen.dart';
-import 'package:nphotos/screens/albums/albums_screen.dart';
-import 'package:nphotos/screens/favorites/favorites_screen.dart';
-import 'package:nphotos/screens/trash/trash_screen.dart';
-import 'package:nphotos/screens/videos/videos_screen.dart';
-import 'package:nphotos/services/photo_service.dart';
+import 'package:NexoraUi/NexoraUi.dart';
+import 'permisos_test_helper.dart';
+import 'package:NPhotos/app/nphotos_app.dart';
+import 'package:NPhotos/controllers/gallery_controller.dart';
+import 'package:NPhotos/controllers/selection_controller.dart';
+import 'package:NPhotos/models/photo.dart';
+import 'package:NPhotos/screens/albums/album_detail_screen.dart';
+import 'package:NPhotos/screens/albums/albums_screen.dart';
+import 'package:NPhotos/screens/favorites/favorites_screen.dart';
+import 'package:NPhotos/screens/trash/trash_screen.dart';
+import 'package:NPhotos/screens/videos/videos_screen.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -29,7 +30,7 @@ void main() {
   group('Prefs de popup', () {
     test('defaults: grid, compacto, A-Z, nada oculto', () {
       final c = GalleryController(
-        photoService: PhotoService(roots: const []),
+        photos: testPhotoRepository(),
       );
       expect(c.albumsViewMode, AlbumsViewMode.grid);
       expect(c.collectionsViewMode, CollectionsViewMode.compact);
@@ -42,7 +43,7 @@ void main() {
 
     test('toggles notifican y alternan', () {
       final c = GalleryController(
-        photoService: PhotoService(roots: const []),
+        photos: testPhotoRepository(),
       );
       var calls = 0;
       c.addListener(() => calls++);
@@ -69,7 +70,7 @@ void main() {
   group('Orden', () {
     test('applyNameSort A-Z y Z-A', () {
       final c = GalleryController(
-        photoService: PhotoService(roots: const []),
+        photos: testPhotoRepository(),
       );
       final photos = [_photo('/x/b.jpg'), _photo('/x/a.jpg')];
       expect(
@@ -131,7 +132,7 @@ void main() {
     /// el reloj falso no lo completa, así que se ejecuta con
     /// `tester.runAsync` (reloj real) en vez de `await` directo.
     Future<GalleryController> loaded(WidgetTester tester) async {
-      final c = GalleryController(photoService: PhotoService(roots: [tmp]));
+      final c = GalleryController(photos: testPhotoRepository(root: tmp.path));
       await tester.runAsync(() => c.fetchPhotos());
       return c;
     }
@@ -196,7 +197,7 @@ void main() {
 
     test('ocultar álbum lo saca de la parrilla y vuelve con la colección', () {
       final c = GalleryController(
-        photoService: PhotoService(roots: const []),
+        photos: testPhotoRepository(),
       );
       // Sin datos: se comprueba la API de preferencias directamente.
       expect(c.hiddenAlbums, isEmpty);
@@ -252,7 +253,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(const NPhotosApp());
+      await tester.pumpWidget(NPhotosApp(permissions: testPermissions()));
       await settleMenu(tester);
       await openPopup(tester);
 
@@ -271,7 +272,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(const NPhotosApp());
+      await tester.pumpWidget(NPhotosApp(permissions: testPermissions()));
       await settleMenu(tester);
 
       await openPopup(tester);
@@ -299,7 +300,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(const NPhotosApp());
+      await tester.pumpWidget(NPhotosApp(permissions: testPermissions()));
       await settleMenu(tester);
 
       // Ir a Álbumes.
@@ -326,7 +327,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(const NPhotosApp());
+      await tester.pumpWidget(NPhotosApp(permissions: testPermissions()));
       await settleMenu(tester);
 
       // Ir a Colecciones.

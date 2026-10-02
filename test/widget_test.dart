@@ -1,10 +1,11 @@
+import 'package:NexoraCore/NexoraCore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nexora_ui/nexora_ui.dart';
-import 'package:nphotos/app/nphotos_app.dart';
-import 'package:nphotos/models/photo.dart';
-import 'package:nphotos/screens/settings/nphotos_settings_screen.dart';
-import 'package:nphotos/services/photo_service.dart';
+import 'package:NexoraUi/NexoraUi.dart';
+import 'permisos_test_helper.dart';
+import 'package:NPhotos/app/nphotos_app.dart';
+import 'package:NPhotos/models/photo.dart';
+import 'package:NPhotos/screens/settings/nphotos_settings_screen.dart';
 
 void main() {
   group('Photo', () {
@@ -33,20 +34,22 @@ void main() {
     });
   });
 
-  group('PhotoService', () {
-    test('imageExtensions cubre fotos y excluye otros', () {
-      expect(PhotoService.imageExtensions, contains('.jpg'));
-      expect(PhotoService.imageExtensions, contains('.png'));
-      expect(PhotoService.imageExtensions, isNot(contains('.mp4')));
-      expect(PhotoService.imageExtensions, isNot(contains('.txt')));
+  group('Clasificación de familias (NexoraCore)', () {
+    // Estas comprobaciones ya no viven en la app: la familia de un
+    // archivo la decide `NexoraCore` con un único `kindForPath`, así que
+    // duplicar aquí la lista de extensiones sería justo lo que este
+    // refactor elimina.
+    test('las fotos se clasifican como imagen y no como vídeo', () {
+      expect(kindForPath('/a/b.jpg'), FileKind.image);
+      expect(kindForPath('/a/b.png'), FileKind.image);
+      expect(kindForPath('/a/b.mp4'), isNot(FileKind.image));
+      expect(kindForPath('/a/b.txt'), isNot(FileKind.image));
     });
 
-    test('videoExtensions cubre vídeos y supported los une', () {
-      expect(PhotoService.videoExtensions, contains('.mp4'));
-      expect(PhotoService.videoExtensions, contains('.mov'));
-      expect(PhotoService.supportedExtensions, contains('.jpg'));
-      expect(PhotoService.supportedExtensions, contains('.mp4'));
-      expect(PhotoService.supportedExtensions, isNot(contains('.txt')));
+    test('los vídeos se clasifican como vídeo y el resto no', () {
+      expect(kindForPath('/a/b.mp4'), FileKind.video);
+      expect(kindForPath('/a/b.mov'), FileKind.video);
+      expect(kindForPath('/a/b.jpg'), isNot(FileKind.video));
     });
   });
 
@@ -58,7 +61,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const NPhotosApp());
+    await tester.pumpWidget(NPhotosApp(permissions: testPermissions()));
     await tester.pump();
 
     expect(find.byType(NMobileLayout), findsOneWidget);
@@ -79,7 +82,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const NPhotosApp());
+    await tester.pumpWidget(NPhotosApp(permissions: testPermissions()));
     await tester.pump();
 
     await tester.tap(find.byIcon(Icons.collections_bookmark_outlined));
@@ -105,14 +108,19 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      const MaterialApp(home: NPhotosSettingsScreen()),
+      MaterialApp(
+        home: NPhotosSettingsScreen(permissions: testPermissions()),
+      ),
     );
     await tester.pump();
 
     // Release: sin secciones propias (eran botones muertos).
     // Solo la sección base aportada por el kit.
-    await tester.scrollUntilVisible(find.text('General'), 300);
-    expect(find.text('General'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Ajustes adicionales'), 300);
+    expect(find.text('Ajustes adicionales'), findsOneWidget);
+    expect(find.text('Sobre NPhotos'), findsOneWidget);
+    expect(find.text('Cuenta'), findsNothing);
+    expect(find.text('Idioma'), findsNothing);
     expect(find.text('Nube'), findsNothing);
     expect(find.text('Organización inteligente'), findsNothing);
     expect(find.text('Explorar y compartir'), findsNothing);
@@ -127,12 +135,14 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      const MaterialApp(home: NPhotosSettingsScreen()),
+      MaterialApp(
+        home: NPhotosSettingsScreen(permissions: testPermissions()),
+      ),
     );
     await tester.pump();
 
     expect(find.byType(NSettingsContent), findsOneWidget);
-    expect(find.text('General'), findsOneWidget);
+    expect(find.text('Ajustes adicionales'), findsOneWidget);
   });
 
   testWidgets('NPhotosApp en desktop usa NDesktopLayout', (
@@ -143,7 +153,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const NPhotosApp());
+    await tester.pumpWidget(NPhotosApp(permissions: testPermissions()));
     await tester.pump();
 
     expect(find.byType(NDesktopLayout), findsOneWidget);

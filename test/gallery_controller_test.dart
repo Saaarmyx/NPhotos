@@ -1,9 +1,9 @@
+import 'photo_repo_helper.dart';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nphotos/controllers/gallery_controller.dart';
-import 'package:nphotos/services/local_store.dart';
-import 'package:nphotos/services/photo_service.dart';
+import 'package:NPhotos/controllers/gallery_controller.dart';
+import 'package:NPhotos/services/local_store.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -26,7 +26,7 @@ void main() {
   }
 
   GalleryController controller() => GalleryController(
-    photoService: PhotoService(roots: [tmp]),
+    photos: testPhotoRepository(root: tmp.path),
   );
 
   group('GalleryController', () {

@@ -1,8 +1,8 @@
+import 'photo_repo_helper.dart';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nphotos/controllers/gallery_controller.dart';
-import 'package:nphotos/services/photo_service.dart';
+import 'package:NPhotos/controllers/gallery_controller.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -26,8 +26,18 @@ void main() {
     return f;
   }
 
-  Future<GalleryController> loaded() async {
-    final c = GalleryController(photoService: PhotoService(roots: [tmp]));
+  /// Controlador con la política de pines que el test quiere.
+  ///
+  /// Por defecto `none`: el test que verifica "ocultar" tiene que saber
+  /// que **nada** está pineado, o la aserción depende de cuántos álbumes
+  /// hay y de cuáles Gains. Se declara aquí, no se deduce.
+  Future<GalleryController> loaded({
+    NPinSeedPolicy pins = NPinSeedPolicy.none,
+  }) async {
+    final c = GalleryController(
+      photos: testPhotoRepository(root: tmp.path),
+      pinSeedPolicy: pins,
+    );
     await c.fetchPhotos();
     return c;
   }
@@ -40,9 +50,16 @@ void main() {
     await image('Familia', 'b.jpg');
     await image('Docs', 'c.jpg');
     final c = await loaded();
-    final viajes = albumNamed(c, 'Viajes');
 
-    expect(c.unpinnedAlbums.map((a) => a.name), contains('Viajes'));
+    // Precondición explícita: la prueba es de "ocultar", y ocultar solo
+    // se ve si antes el álbum estaba en la parrilla. Que no haya pines
+    // es una decisión declarada, no una consecuencia del orden en que el
+    // escáner devolvió las carpetas.
+    expect(c.pinnedIds, isEmpty, reason: 'política de pines declarada');
+    expect(c.unpinnedAlbums.map((a) => a.name),
+        containsAll(['Viajes', 'Familia', 'Docs']));
+
+    final viajes = albumNamed(c, 'Viajes');
 
     await c.setAlbumHidden(viajes.path, true);
     expect(c.hiddenAlbums.map((a) => a.name), contains('Viajes'));

@@ -1,11 +1,11 @@
+import 'photo_repo_helper.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:exif/exif.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nphotos/controllers/gallery_controller.dart';
-import 'package:nphotos/services/media_probe.dart';
-import 'package:nphotos/services/photo_service.dart';
+import 'package:NPhotos/controllers/gallery_controller.dart';
+import 'package:NexoraCore/NexoraCore.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -177,7 +177,7 @@ void main() {
     }
 
     GalleryController controller() => GalleryController(
-      photoService: PhotoService(roots: [tmp]),
+      photos: testPhotoRepository(root: tmp.path),
       privateDirOverride: vault,
     );
 

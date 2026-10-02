@@ -1,11 +1,11 @@
+import 'photo_repo_helper.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nphotos/controllers/gallery_controller.dart';
-import 'package:nphotos/models/photo.dart';
-import 'package:nphotos/screens/gallery/photo_viewer_screen.dart';
-import 'package:nphotos/services/photo_service.dart';
+import 'package:NPhotos/controllers/gallery_controller.dart';
+import 'package:NPhotos/models/photo.dart';
+import 'package:NPhotos/screens/gallery/photo_viewer_screen.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
@@ -56,7 +56,7 @@ void main() {
 
   Widget viewer() => MaterialApp(
     home: PhotoViewerScreen(
-      controller: GalleryController(photoService: PhotoService(roots: [tmp])),
+      controller: GalleryController(photos: testPhotoRepository(root: tmp.path)),
       initialIndex: 0,
       photosOverride: [photo],
     ),

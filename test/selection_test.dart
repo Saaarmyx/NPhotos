@@ -1,9 +1,9 @@
+import 'photo_repo_helper.dart';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nphotos/controllers/gallery_controller.dart';
-import 'package:nphotos/controllers/selection_controller.dart';
-import 'package:nphotos/services/photo_service.dart';
+import 'package:NPhotos/controllers/gallery_controller.dart';
+import 'package:NPhotos/controllers/selection_controller.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -91,7 +91,7 @@ void main() {
     }
 
     Future<GalleryController> loaded() async {
-      final c = GalleryController(photoService: PhotoService(roots: [tmp]));
+      final c = GalleryController(photos: testPhotoRepository(root: tmp.path));
       await c.fetchPhotos();
       return c;
     }
