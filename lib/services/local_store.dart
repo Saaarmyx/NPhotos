@@ -1,14 +1,20 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
-import 'package:nexora_ui/nexora_ui.dart';
+import 'package:NexoraCore/NexoraCore.dart';
+import 'package:NexoraUi/NexoraUi.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../controllers/gallery_controller.dart';
+import 'view_prefs.dart';
 
 /// Persistencia local de NPhotos (favoritos y papelera).
 ///
 /// Guarda solo identificadores (rutas) y metadatos: las fotos se
 /// redescubren del disco en cada arranque y los registros huérfanos
 /// (archivos que ya no existen) se podan al cargar.
+///
+/// Los favoritos se sincronizan con el índice nativo (redb compartido con NFiles)
+/// para que una foto marcada en NPhotos se refleje inmediatamente en NFiles.
 class LocalStore {
   static const _favoritesKey = 'nphotos_favorites_v1';
   static const _trashKey = 'nphotos_trash_v1';
@@ -17,26 +23,47 @@ class LocalStore {
   static const _privateOriginsKey = 'nphotos_private_origins_v1';
   static const _albumsKey = 'nphotos_albums_v1';
   static const _onboardingDoneKey = 'nphotos_onboarding_done_v1';
-  static const _usernameKey = 'nphotos_username_v1';
-  static const _avatarKey = 'nphotos_avatar_v1';
-  static const _accentKey = 'nphotos_accent_v1';
-  static const _themeModeKey = 'nphotos_theme_mode_v1';
-  static const _barStyleKey = 'nphotos_bar_style_v1';
-  static const _performanceKey = 'nphotos_performance_v1';
 
   final SharedPreferences _prefs;
+  NativeIndexStore? _nativeIndex;
 
   LocalStore(this._prefs);
 
   static Future<LocalStore> load() async =>
       LocalStore(await SharedPreferences.getInstance());
 
-  /// Ids (rutas) marcados como favoritos.
-  Set<String> favoriteIds() =>
-      Set.of(_prefs.getStringList(_favoritesKey) ?? const []);
+  /// Índice nativo (redb) para favoritos compartidos con NFiles.
+  NativeIndexStore get _native => _nativeIndex ??= NativeIndexStore();
 
-  Future<void> saveFavoriteIds(Set<String> ids) =>
-      _prefs.setStringList(_favoritesKey, ids.toList());
+  /// Ids (rutas) marcados como favoritos.
+  /// Lee del índice nativo (redb) como fuente principal; si no está disponible,
+  /// cae a SharedPreferences (legacy).
+  Set<String> favoriteIds() {
+    // 1) Índice nativo: fuente de verdad compartida con NFiles
+    try {
+      final nativeFavs = _native.loadFavorites();
+      if (nativeFavs != null && nativeFavs.isNotEmpty) {
+        return Set.of(nativeFavs);
+      }
+    } catch (_) {
+      // Silencioso: degradamos a SP
+    }
+    // 2) Fallback: SharedPreferences (solo esta app)
+    return Set.of(_prefs.getStringList(_favoritesKey) ?? const []);
+  }
+
+  /// Guarda favoritos en AMBOS almacenes: índice nativo (para NFiles) y SP (legacy).
+  Future<void> saveFavoriteIds(Set<String> ids) async {
+    // 1) Índice nativo (redb) - prioritario para sincronía
+    try {
+      if (_native.isAvailable && ids.isNotEmpty) {
+        _native.setFavorites(ids.toList(), true);
+      }
+    } catch (_) {}
+
+    // 2) SharedPreferences - fallback legacy
+    await _prefs.setStringList(_favoritesKey, ids.toList());
+  }
 
   /// Ruta → fecha en que se movió a la papelera.
   Map<String, DateTime> trashedAt() {
@@ -156,48 +183,43 @@ class LocalStore {
   /// Si ya se completó la bienvenida inicial.
   bool onboardingDone() => _prefs.getBool(_onboardingDoneKey) ?? false;
 
-  /// Persiste la bienvenida: estado actual de [AppAppearance] + fin.
+  /// Preferencias del popup de la topbar (orden, vista, filtros,
+  /// secciones ocultas). Mismo almacén que la apariencia, otro prefijo.
+  late final GalleryViewPrefs viewPrefs =
+      GalleryViewPrefs(PrefsKeyValueStore(_prefs));
+
+  /// Aplica lo guardado al controller y se queda escuchando.
+  ///
+  /// Se separa de [applyAppearance] a propósito: la apariencia se
+  /// carga una vez al arrancar, estas preferencias se guardan y recargan
+  /// cada vez que el usuario toca el popup.
+  void applyViewPreferences(GalleryController controller) {
+    viewPrefs.applyTo(controller, viewPrefs.load());
+    viewPrefs.attach(controller);
+  }
+
+  /// Persistencia de la apariencia, delegada en el kit.
+  ///
+  /// La lista de ajustes (acento, tema, estilo, intensidad, modo, usuario
+  /// y foto) la define [NAppearanceStore] para que las dos apps no puedan
+  /// desincronizarse. Aqui solo se le da nombre y prefijo.
+  late final NAppearanceStore appearance =
+      NAppearanceStore(PrefsKeyValueStore(_prefs), prefix: 'nphotos_appearance_');
+
+  /// Persiste la bienvenida y marca el fin.
   Future<void> saveOnboarding() async {
-    await _prefs.setString(_usernameKey, AppAppearance.userName.value);
-    final avatar = AppAppearance.avatarPath.value;
-    if (avatar != null) {
-      await _prefs.setString(_avatarKey, avatar);
-    } else {
-      await _prefs.remove(_avatarKey);
-    }
-    await _prefs.setInt(
-        _accentKey, AppAppearance.accentColor.value.toARGB32());
-    await _prefs.setString(
-        _themeModeKey, AppAppearance.themeMode.value.name);
-    await _prefs.setString(
-        _barStyleKey, AppAppearance.barStyle.value.name);
-    await _prefs.setString(
-        _performanceKey, AppAppearance.performanceMode.value.name);
+    await appearance.save();
     await _prefs.setBool(_onboardingDoneKey, true);
   }
 
-  /// Aplica la apariencia guardada (o el rosado nphotos por defecto).
+  /// Aplica la apariencia guardada y se queda escuchando para que
+  /// cualquier cambio posterior se guarde solo.
+  ///
+  /// Antes solo se guardaba al terminar la bienvenida, asi que cambiar el
+  /// acento o el estilo despues se perdia al reiniciar.
   void applyAppearance() {
-    if (!onboardingDone()) {
-      AppAppearance.setAccentColor(NColors.photosAccent);
-      return;
-    }
-    AppAppearance.setUserName(_prefs.getString(_usernameKey) ?? '');
-    AppAppearance.setAvatarPath(_prefs.getString(_avatarKey));
-    final accent = _prefs.getInt(_accentKey);
-    if (accent != null) AppAppearance.setAccentColor(Color(accent));
-    AppAppearance.setThemeMode(ThemeMode.values.firstWhere(
-      (m) => m.name == _prefs.getString(_themeModeKey),
-      orElse: () => ThemeMode.system,
-    ));
-    AppAppearance.setBarStyle(NBarStyle.values.firstWhere(
-      (s) => s.name == _prefs.getString(_barStyleKey),
-      orElse: () => NBarStyle.solid,
-    ));
-    AppAppearance.setPerformanceMode(NPerformanceMode.values.firstWhere(
-      (m) => m.name == _prefs.getString(_performanceKey),
-      orElse: () => NPerformanceMode.high,
-    ));
+    appearance.load(defaultAccent: NAccentColors.photos);
+    appearance.attach();
   }
 }
 
@@ -225,4 +247,46 @@ class AlbumPrefs {
     cover: clearCover ? null : (cover ?? this.cover),
     hidden: hidden ?? this.hidden,
   );
+}
+
+/// Adaptador de [NKeyValueStore] sobre `SharedPreferences`.
+///
+/// El kit define la persistencia de la apariencia pero no depende de
+/// `shared_preferences`, para no arrastrar el plugin a quien solo quiera
+/// un componente. Esta clase es todo el pegamento que hace falta.
+class PrefsKeyValueStore implements NKeyValueStore {
+  final SharedPreferences prefs;
+
+  const PrefsKeyValueStore(this.prefs);
+
+  @override
+  String? getString(String key) => prefs.getString(key);
+
+  @override
+  double? getDouble(String key) => prefs.getDouble(key);
+
+  @override
+  int? getInt(String key) => prefs.getInt(key);
+
+  @override
+  bool? getBool(String key) => prefs.getBool(key);
+
+  @override
+  Future<void> setString(String key, String? value) async {
+    if (value == null) {
+      await prefs.remove(key);
+    } else {
+      await prefs.setString(key, value);
+    }
+  }
+
+  @override
+  Future<void> setDouble(String key, double value) =>
+      prefs.setDouble(key, value);
+
+  @override
+  Future<void> setInt(String key, int value) => prefs.setInt(key, value);
+
+  @override
+  Future<void> setBool(String key, bool value) => prefs.setBool(key, value);
 }
