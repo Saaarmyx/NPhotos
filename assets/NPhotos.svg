@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 512 512">
+  <defs>
+    <style>
+      .cls-1 {
+        filter: url(#drop-shadow-1);
+        mix-blend-mode: luminosity;
+      }
+
+      .cls-2 {
+        fill: #fff;
+        opacity: .5;
+      }
+
+      .cls-3 {
+        isolation: isolate;
+      }
+
+      .cls-4 {
+        fill: url(#linear-gradient);
+      }
+    </style>
+    <linearGradient id="linear-gradient" x1="38.6" y1="38.22" x2="474.16" y2="473.78" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d94600"/>
+      <stop offset="1" stop-color="#ff4600"/>
+    </linearGradient>
+    <filter id="drop-shadow-1" x="46" y="46" width="420" height="420" filterUnits="userSpaceOnUse">
+      <feOffset dx="0" dy="0"/>
+      <feGaussianBlur result="blur" stdDeviation="10"/>
+      <feFlood flood-color="#000" flood-opacity=".35"/>
+      <feComposite in2="blur" operator="in"/>
+      <feComposite in="SourceGraphic"/>
+    </filter>
+  </defs>
+  <g class="cls-3">
+    <g id="Layer_1" data-name="Layer 1">
+      <rect class="cls-4" x="6.38" y="6" width="500" height="500" rx="110" ry="110"/>
+      <g class="cls-1">
+        <rect class="cls-2" x="131.98" y="239.09" width="114.16" height="169.2" rx="57.08" ry="57.08" transform="translate(284.26 -38.88) rotate(45)"/>
+        <rect class="cls-2" x="266.89" y="239.09" width="114.16" height="169.2" rx="57.08" ry="57.08" transform="translate(-134 323.89) rotate(-45)"/>
+        <rect class="cls-2" x="131.98" y="104.18" width="114.16" height="169.2" rx="57.08" ry="57.08" transform="translate(-78.11 188.97) rotate(-45)"/>
+        <rect class="cls-2" x="266.89" y="104.18" width="114.16" height="169.2" rx="57.08" ry="57.08" transform="translate(228.37 -173.79) rotate(45)"/>
+        <rect class="cls-2" x="103.52" y="171.4" width="114.16" height="169.2" rx="57.08" ry="57.08" transform="translate(416.6 95.4) rotate(90)"/>
+        <rect class="cls-2" x="294.32" y="171.4" width="114.16" height="169.2" rx="57.08" ry="57.08" transform="translate(607.4 -95.4) rotate(90)"/>
+        <rect class="cls-2" x="199.44" y="76" width="114.16" height="169.2" rx="57.08" ry="57.08"/>
+        <rect class="cls-2" x="199.44" y="266.8" width="114.16" height="169.2" rx="57.08" ry="57.08"/>
+      </g>
+    </g>
+  </g>
+</svg>
