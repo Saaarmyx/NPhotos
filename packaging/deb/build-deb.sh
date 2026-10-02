@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Genera nphotos_<version>_amd64.deb desde el bundle release de Flutter.
+# Genera NPhotos_<version>_amd64.deb desde el bundle release de Flutter.
 #
 # Uso:
 #   ./packaging/deb/build-deb.sh
@@ -21,8 +21,8 @@ echo "==> flutter build linux --release"
 (cd "$ROOT" && flutter build linux --release)
 
 BUNDLE="$ROOT/build/linux/x64/release/bundle"
-if [ ! -x "$BUNDLE/nphotos" ]; then
-  echo "ERROR: no se encontró el binario $BUNDLE/nphotos" >&2
+if [ ! -x "$BUNDLE/NPhotos" ]; then
+  echo "ERROR: no se encontró el binario $BUNDLE/NPhotos" >&2
   exit 1
 fi
 STAGE="$(mktemp -d)"
@@ -31,12 +31,16 @@ trap 'rm -rf "$STAGE"' EXIT
 echo "==> ensamblando paquete $VERSION en $STAGE"
 chmod 755 "$STAGE"
 mkdir -p "$STAGE/DEBIAN" \
-         "$STAGE/usr/lib/nphotos" \
+         "$STAGE/usr/lib/NPhotos" \
          "$STAGE/usr/bin" \
          "$STAGE/usr/share/applications" \
          "$STAGE/usr/share/icons"
 
 cat > "$STAGE/DEBIAN/control" <<EOF
+# `Package:` va en minúsculas a propósito, aunque el resto de la suite use
+# PascalCase: es un campo del formato de Debian, no un nombre de paquete de
+# Dart, y dpkg rechaza cualquier carácter en mayúscula ahí. El resto del
+# paquete (rutas, binario, .desktop) sí va en PascalCase.
 Package: nphotos
 Version: $VERSION
 Section: graphics
@@ -48,15 +52,15 @@ Description: Visor y organizador de fotos de Nexora
  Explora, organiza y marca como favoritas tus fotos.
 EOF
 
-cp -r "$BUNDLE/"* "$STAGE/usr/lib/nphotos/"
-chmod 755 "$STAGE/usr/lib/nphotos/nphotos"
-ln -s /usr/lib/nphotos/nphotos "$STAGE/usr/bin/nphotos"
-cp "$ROOT/packaging/linux/nphotos.desktop" "$STAGE/usr/share/applications/"
-chmod 644 "$STAGE/usr/share/applications/nphotos.desktop"
+cp -r "$BUNDLE/"* "$STAGE/usr/lib/NPhotos/"
+chmod 755 "$STAGE/usr/lib/NPhotos/NPhotos"
+ln -s /usr/lib/NPhotos/NPhotos "$STAGE/usr/bin/NPhotos"
+cp "$ROOT/packaging/linux/NPhotos.desktop" "$STAGE/usr/share/applications/"
+chmod 644 "$STAGE/usr/share/applications/NPhotos.desktop"
 cp -r "$ROOT/packaging/linux/icons/"* "$STAGE/usr/share/icons/"
 chmod 644 "$STAGE/DEBIAN/control"
 
-OUT="$ROOT/compilaciones/deb/$CANAL/nphotos_${VERSION}_${ARCH}.deb"
+OUT="$ROOT/compilaciones/deb/$CANAL/NPhotos_${VERSION}_${ARCH}.deb"
 mkdir -p "$(dirname "$OUT")"
 dpkg-deb --root-owner-group --build "$STAGE" "$OUT"
 echo "==> OK $OUT"

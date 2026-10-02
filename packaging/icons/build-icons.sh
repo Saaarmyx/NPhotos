@@ -2,16 +2,16 @@
 # Genera todos los iconos de NPhotos desde el arte maestro en assets/.
 #
 # Fuente (la primera que exista, en este orden):
-#   assets/nphotos.svg            (recomendada: vectorial, sin pérdida)
-#   assets/nphotos.png            (raster: usar de >=1024px si es posible)
+#   assets/NPhotos.svg            (recomendada: vectorial, sin pérdida)
+#   assets/NPhotos.png            (raster: usar de >=1024px si es posible)
 # Foreground de Android (opcional, mismo orden de preferencia):
-#   assets/nphotos-foreground.svg / assets/nphotos-foreground.png
+#   assets/NPhotos-foreground.svg / assets/NPhotos-foreground.png
 #   Si no existe, el foreground reutiliza el icono completo.
 #
 # Genera:
 #   Android  res/mipmap-<dpi>/ic_launcher.png            (48/72/96/144/192)
 #   Android  res/mipmap-<dpi>/ic_launcher_foreground.png (108/162/216/324/432)
-#   Ubuntu   packaging/linux/icons/hicolor/512x512/apps/nphotos.png
+#   Ubuntu   packaging/linux/icons/hicolor/512x512/apps/NPhotos.png
 #
 # Uso:
 #   ./packaging/icons/build-icons.sh
@@ -32,24 +32,24 @@ FG_SCALE="0.72"
 fail() { echo "ERROR: $*" >&2; exit 1; }
 
 # --- Resuelve fuente principal ---
-if [ -f "$ASSETS/nphotos.svg" ]; then
-  SRC="$ASSETS/nphotos.svg"
+if [ -f "$ASSETS/NPhotos.svg" ]; then
+  SRC="$ASSETS/NPhotos.svg"
   SRC_KIND="svg"
-  command -v inkscape >/dev/null 2>&1 || fail "hay assets/nphotos.svg pero inkscape no está instalado"
-elif [ -f "$ASSETS/nphotos.png" ]; then
-  SRC="$ASSETS/nphotos.png"
+  command -v inkscape >/dev/null 2>&1 || fail "hay assets/NPhotos.svg pero inkscape no está instalado"
+elif [ -f "$ASSETS/NPhotos.png" ]; then
+  SRC="$ASSETS/NPhotos.png"
   SRC_KIND="png"
-  python3 -c "import PIL" 2>/dev/null || fail "hay assets/nphotos.png pero falta python3-PIL"
+  python3 -c "import PIL" 2>/dev/null || fail "hay assets/NPhotos.png pero falta python3-PIL"
 else
-  fail "falta el arte maestro: pon assets/nphotos.svg (ideal) o assets/nphotos.png"
+  fail "falta el arte maestro: pon assets/NPhotos.svg (ideal) o assets/NPhotos.png"
 fi
 
 # --- Resuelve foreground (opcional) ---
 FG=""
-if [ -f "$ASSETS/nphotos-foreground.svg" ]; then
-  FG="$ASSETS/nphotos-foreground.svg"
-elif [ -f "$ASSETS/nphotos-foreground.png" ]; then
-  FG="$ASSETS/nphotos-foreground.png"
+if [ -f "$ASSETS/NPhotos-foreground.svg" ]; then
+  FG="$ASSETS/NPhotos-foreground.svg"
+elif [ -f "$ASSETS/NPhotos-foreground.png" ]; then
+  FG="$ASSETS/NPhotos-foreground.png"
 fi
 if [ -z "$FG" ]; then
   echo "==> sin foreground dedicado: se reutiliza el icono completo"
@@ -134,7 +134,7 @@ done
 
 # --- Ubuntu ---
 mkdir -p "$UBU"
-render "$SRC" "$UBU/nphotos.png" 512 "$SRC_KIND"
+render "$SRC" "$UBU/NPhotos.png" 512 "$SRC_KIND"
 
 echo "==> OK iconos regenerados:"
-ls "$RES"/mipmap-*/ic_launcher*.png "$UBU/nphotos.png"
+ls "$RES"/mipmap-*/ic_launcher*.png "$UBU/NPhotos.png"

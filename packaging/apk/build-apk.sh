@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Genera los 3 APK de NPhotos (debug, beta, release) en un solo llamado.
 #
-# Salidas en compilaciones/apk/<canal>/nphotos_<AA.MM.DD>-<canal>.apk
+# Salidas en compilaciones/apk/<canal>/NPhotos_<AA.MM.DD>-<canal>.apk
 # (APK único universal por canal).
 #
 # La base de versión sale de `version:` en pubspec.yaml (solo AA.MM.DD,
@@ -37,8 +37,8 @@ for CANAL in debug beta release; do
     SRC="$ROOT/build/app/outputs/flutter-apk/app-release.apk"
   fi
 
-  cp "$SRC" "$OUT_DIR/nphotos_${VER}.apk"
-  echo "==> [$CANAL] OK $OUT_DIR/nphotos_${VER}.apk"
+  cp "$SRC" "$OUT_DIR/NPhotos_${VER}.apk"
+  echo "==> [$CANAL] OK $OUT_DIR/NPhotos_${VER}.apk"
 done
 
 echo "==> compilaciones/apk:"
