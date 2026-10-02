@@ -1,7 +1,8 @@
 # ============================================================
 # .gitignore — NPhotos (Flutter)
-# Soporta: Android, Linux desktop
-# Sistema operativo: macOS, Windows, Linux
+# Plataformas objetivo: Android, Linux desktop
+# Sistema operativo de trabajo: Linux, macOS o Windows (el repo se
+# puede editar desde cualquiera; solo se compila para las de arriba).
 # Editores: VS Code, Android Studio / IntelliJ, Vim, Sublime
 # ============================================================
 
@@ -62,47 +63,15 @@ android/key.properties
 /linux/flutter/generated_plugins.cmake
 
 # ------------------------------------------------------------
-# 4. Windows desktop (Flutter + Visual Studio)
-# ------------------------------------------------------------
-/windows/build/
-/windows/flutter/generated_plugin_registrant.cc
-/windows/flutter/generated_plugin_registrant.h
-/windows/flutter/generated_plugins.cmake
-.vs/
-*.user
-*.suo
-*.vcxproj.filters
-
-# ------------------------------------------------------------
-# 5. iOS / macOS (plantilla Flutter, por compatibilidad)
-# ------------------------------------------------------------
-/ios/Flutter/.last_build_id
-/ios/Flutter/Generated.xcconfig
-/ios/Flutter/flutter_export_environment.sh
-/ios/Pods/
-ios/.generated/
-ios/Flutter/App.framework
-ios/Flutter/Flutter.framework
-ios/Flutter/Flutter.podspec
-*.xcworkspace
-*.xcodeproj
-DerivedData/
-*.ipa
-*.dSYM.zip
-*.dSYM
-*.mobileprovision
-/macos/Flutter/GeneratedPluginRegistrant.swift
-/macos/Flutter/Flutter-Release.xcconfig
-/macos/Flutter/Flutter-Debug.xcconfig
-
-# ------------------------------------------------------------
-# 6. Web (solo salidas; los iconos/fuentes de web/ SÍ se versionan)
+# 4. Web (solo salidas; los iconos/fuentes de web/ SÍ se versionan)
 # ------------------------------------------------------------
 /web/build/
 lib/generated_plugin_registrant.dart
 
 # ------------------------------------------------------------
-# 7. Sistema operativo — macOS
+# 5. Sistema operativo — macOS
+#    La app NO compila para macOS: estas reglas existen solo porque
+#    el repo se edita desde un Mac y `.DS_Store` ensuciaría el diff.
 # ------------------------------------------------------------
 .DS_Store
 .AppleDouble
@@ -116,7 +85,8 @@ lib/generated_plugin_registrant.dart
 .com.apple.timemachine.donotpresent
 
 # ------------------------------------------------------------
-# 8. Sistema operativo — Windows
+# 6. Sistema operativo — Windows
+#    Igual que antes: solo ruido de Explorer al editar el repo.
 # ------------------------------------------------------------
 Thumbs.db
 ehthumbs.db
@@ -125,7 +95,7 @@ $RECYCLE.BIN/
 *.lnk
 
 # ------------------------------------------------------------
-# 9. Sistema operativo — Linux
+# 7. Sistema operativo — Linux
 # ------------------------------------------------------------
 *~
 .fuse_hidden*
@@ -133,7 +103,7 @@ $RECYCLE.BIN/
 .Trash-*
 
 # ------------------------------------------------------------
-# 10. Nexora / NPhotos — compilaciones y packaging
+# 8. Nexora / NPhotos — compilaciones y packaging
 # ------------------------------------------------------------
 # Salidas por canal: compilaciones/apk|deb/release|beta|debug/
 compilaciones/
@@ -145,7 +115,7 @@ compilaciones/
 *.cab
 
 # ------------------------------------------------------------
-# 11. Editores — VS Code
+# 9. Editores — VS Code
 # ------------------------------------------------------------
 .vscode/*
 !.vscode/settings.json
@@ -156,7 +126,7 @@ compilaciones/
 .history/
 
 # ------------------------------------------------------------
-# 12. Editores — Android Studio / IntelliJ
+# 10. Editores — Android Studio / IntelliJ
 # ------------------------------------------------------------
 .idea/
 *.iml
@@ -165,7 +135,7 @@ compilaciones/
 out/
 
 # ------------------------------------------------------------
-# 13. Editores — Vim / Sublime / otros
+# 11. Editores — Vim / Sublime / otros
 # ------------------------------------------------------------
 *.swp
 *.swo
@@ -175,7 +145,7 @@ out/
 *~
 
 # ------------------------------------------------------------
-# 14. Python (scripts de packaging/icons) y cachés
+# 12. Python (scripts de packaging/icons) y cachés
 # ------------------------------------------------------------
 venv/
 .venv/
@@ -183,7 +153,7 @@ __pycache__/
 *.py[cod]
 
 # ------------------------------------------------------------
-# 15. Cobertura, tests y misceláneo
+# 13. Cobertura, tests y misceláneo
 # ------------------------------------------------------------
 /coverage/
 .test_cache/
@@ -193,7 +163,7 @@ __pycache__/
 node_modules/
 
 # ------------------------------------------------------------
-# 16. Secretos y entorno — NUNCA subir al repo
+# 14. Secretos y entorno — NUNCA subir al repo
 # ------------------------------------------------------------
 .env
 .env.*
