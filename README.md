@@ -6,13 +6,13 @@
 [![Dart](https://img.shields.io/badge/Dart-3.13+-0175C2?logo=dart&logoColor=white)](https://dart.dev)
 [![Version](https://img.shields.io/badge/Version-26.09.28--release-blue)](./pubspec.yaml)
 [![License](https://img.shields.io/badge/License-Private-red)](#estándar-de-contribución-y-commits)
-[![Platforms](https://img.shields.io/badge/Platform-Android%20%7C%20Linux%20%7C%20Windows%20%7C%20Web-lightgrey?logo=flutter&logoColor=black)](https://flutter.dev/multi-platform)
+[![Platforms](https://img.shields.io/badge/Platform-Android%20%7C%20Linux-lightgrey)](https://flutter.dev/multi-platform)
 
 ---
 
 ## 1. Propósito e Integración
 
-**NPhotos** (`package:nphotos`, `version: 26.09.28-release+1`, `publish_to: none`) es la aplicación de galería del ecosistema **Nexora**.
+**NPhotos** (`package:NPhotos`, `version: 26.09.28-release+1`, `publish_to: none`) es la aplicación de galería del ecosistema **Nexora**.
 
 Responsabilidad única (SRP): el **dominio fotográfico local** — escaneo de medios, estado, favoritos, papelera, álbumes, colecciones y visualización. No define Design System, ni navegación base, ni persistencia compartida; eso vive en el kit.
 
@@ -22,12 +22,12 @@ Responsabilidad única (SRP): el **dominio fotográfico local** — escaneo de m
 
   ```yaml
   dependencies:
-    nexora_ui:
+    NexoraUi:
       path: ../NexoraUi
   ```
 
 - **Delega el lenguaje visual al kit:** `NAppShell`, `AppAppearance` (acento `NColors.photosAccent`), `NMobileLayout` / `NDesktopLayout`, `NZoomGrid`, `NResponsiveGrid`, `NImageTile`, `NZoomableImage`, `NActionBar`, `NActionSheet`, `NConfirmDialog`, `NRenameDialog`, `NEmptyState`, `NSettingsScreen`.
-- **No duplica componentes del kit.** Si una primitiva visual nace en esta app y se generaliza, se sube a `nexora_ui` y aquí se consume por importación. Las reglas de dominio (qué insignias tiene una foto, qué es un álbum de sistema) sí se quedan aquí.
+- **No duplica componentes del kit.** Si una primitiva visual nace en esta app y se generaliza, se sube a `NexoraUi` y aquí se consume por importación. Las reglas de dominio (qué insignias tiene una foto, qué es un álbum de sistema) sí se quedan aquí.
 - **Aisla la persistencia:** `LocalStore` sobre `shared_preferences` (favoritos, papelera, pins, preferencias de álbum, appearance, snapshot de escaneo).
 - **Permisos en runtime** con `permission_handler`; **reproducción de vídeo** con `media_kit`; **compartir** con `share_plus`; **EXIF/GPS** con `exif` (Dart puro, sin canal de plataforma).
 
@@ -52,7 +52,7 @@ dependencies:
 ## 2. Estructura del Proyecto
 
 ```text
-nphotos/
+NPhotos/
 ├── lib/
 │   ├── main.dart                     # Bootstrap: MediaKit + LocalStore + appearance
 │   ├── app/
@@ -78,12 +78,12 @@ nphotos/
 │   │   └── photo_viewer.dart         # openPhotoViewer + sharePhotos
 │   └── widgets/                      # Adaptadores de dominio sobre primitivas del kit
 ├── test/                             # 10 suites: controladores, local store, pantallas
-├── android/ linux/ windows/ web/     # Plataformas habilitadas
-├── assets/                           # nphotos.svg
+├── android/ linux/ web/              # Plataformas habilitadas
+├── assets/                           # NPhotos.svg
 └── packaging/                        # Scripts de APK, DEB, iconos
 ```
 
-**Criterio de ubicación:** si el widget conoce `Photo`, `Album` o un `Controller`, vive en `lib/`. Si solo sabe pintar, pertenece a `nexora_ui`.
+**Criterio de ubicación:** si el widget conoce `Photo`, `Album` o un `Controller`, vive en `lib/`. Si solo sabe pintar, pertenece a `NexoraUi`.
 
 ---
 
@@ -143,8 +143,8 @@ Envoltorios finos con la regla de dominio; el render es del kit.
 ```dart
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:nphotos/app/nphotos_app.dart';
-import 'package:nphotos/services/local_store.dart';
+import 'package:NPhotos/app/nphotos_app.dart';
+import 'package:NPhotos/services/local_store.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -179,8 +179,8 @@ class NPhotosApp extends StatelessWidget {
 ```dart
 import 'dart:async';
 
-import 'package:nphotos/controllers/gallery_controller.dart';
-import 'package:nphotos/services/photo_service.dart';
+import 'package:NPhotos/controllers/gallery_controller.dart';
+import 'package:NPhotos/services/photo_service.dart';
 
 Future<GalleryController> bootstrapGallery() async {
   // Sin argumentos usa `PhotoService()` y el `LocalStore` por defecto.
@@ -199,7 +199,7 @@ Ese es el ciclo de vida real en la app (`NPhotosHomeState`): se observan las car
 ### Abrir el visor desde cualquier pantalla
 
 ```dart
-import 'package:nphotos/utils/photo_viewer.dart';
+import 'package:NPhotos/utils/photo_viewer.dart';
 
 onTap: () => openPhotoViewer(
   context,
@@ -214,8 +214,8 @@ onTap: () => openPhotoViewer(
 La app no reimplementa tiles ni visores; compone los del kit y añade solo la regla de dominio:
 
 ```dart
-import 'package:nexora_ui/nexora_ui.dart';
-import 'package:nphotos/widgets/photo_tile.dart';
+import 'package:NexoraUi/NexoraUi.dart';
+import 'package:NPhotos/widgets/photo_tile.dart';
 
 // Rejilla con pinch-to-zoom. `newIds` marca las fotos nuevas para que
 // aparezcan con animación en vez de saltar; el número de columnas es
@@ -314,7 +314,7 @@ flutter build linux --release
 
 ### Android: core library desugaring (obligatorio)
 
-`nexora_ui` depende de `flutter_local_notifications`, que usa APIs de `java.time` ausentes por debajo de la API 26. Sin desugaring el build falla en `checkDebugAarMetadata`:
+`NexoraUi` depende de `flutter_local_notifications`, que usa APIs de `java.time` ausentes por debajo de la API 26. Sin desugaring el build falla en `checkDebugAarMetadata`:
 
 ```kotlin
 // android/app/build.gradle.kts
@@ -367,7 +367,7 @@ Reglas adicionales del repositorio:
 - **Sin `git add .` ni `git add -A`.** Se agregan archivos explícitos, para que nada generado (`build/`, `venv/`, artefactos de firma) acabe en un commit por accidente.
 - El cuerpo del mensaje explica el **porqué**; el resumen explica el **qué**.
 - Un commit = un cambio con sentido. Si el mensaje necesita una "y", probablemente son dos commits.
-- Nótese `git diff` antes de confirmar: `nphotos` y `NexoraUi` son paquetes independientes del monorepo y se versionan por separado.
+- Nótese `git diff` antes de confirmar: `NPhotos` y `NexoraUi` son paquetes independientes del monorepo y se versionan por separado.
 
 ---
 
