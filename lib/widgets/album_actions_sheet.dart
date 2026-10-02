@@ -10,7 +10,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:nexora_ui/nexora_ui.dart';
+import 'package:NexoraUi/NexoraUi.dart';
 
 import '../controllers/gallery_controller.dart';
 

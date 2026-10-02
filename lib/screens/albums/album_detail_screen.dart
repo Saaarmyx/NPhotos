@@ -3,7 +3,7 @@
 // Molde de detalle de álbum: portada + grilla con visor. Cada álbum
 // que se cree o se tenga se renderiza con esta pantalla.
 import 'package:flutter/material.dart';
-import 'package:nexora_ui/nexora_ui.dart';
+import 'package:NexoraUi/NexoraUi.dart';
 
 import '../../controllers/gallery_controller.dart';
 import '../../models/photo.dart';

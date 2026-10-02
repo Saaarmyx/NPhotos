@@ -6,7 +6,7 @@
 // La presentación vive en el kit (`NActionBar`); este archivo solo la
 // conecta con el `SelectionController` de la app.
 import 'package:flutter/material.dart';
-import 'package:nexora_ui/nexora_ui.dart';
+import 'package:NexoraUi/NexoraUi.dart';
 
 import '../controllers/selection_controller.dart';
 

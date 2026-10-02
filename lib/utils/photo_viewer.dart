@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nexora_ui/nexora_ui.dart';
+import 'package:NexoraUi/NexoraUi.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../controllers/gallery_controller.dart';
