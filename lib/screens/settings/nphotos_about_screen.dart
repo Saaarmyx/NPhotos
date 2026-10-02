@@ -1,15 +1,19 @@
 // lib/screens/settings/nphotos_about_screen.dart
 //
-// "Sobre la app" de NPhotos: reutiliza el contenido del kit pero con
-// callbacks funcionales (permisos reales y revocado vía ajustes).
+// "Sobre la app" de NPhotos: reutiliza el contenido del kit y le
+// encaja la gestión de permisos del núcleo, igual que NFiles. La copia
+// local de esa lógica ya no existe: vive en `NexoraCore`.
 import 'package:flutter/material.dart';
-import 'package:nexora_ui/nexora_ui.dart';
+import 'package:NexoraCore/NexoraCore.dart';
+import 'package:NexoraUi/NexoraUi.dart';
 
-import 'nphotos_permissions.dart';
+import 'nphotos_permissions_screen.dart';
 import 'nphotos_settings_screen.dart';
 
 class NPhotosAboutScreen extends StatelessWidget {
-  const NPhotosAboutScreen({super.key});
+  final CorePermissions permissions;
+
+  const NPhotosAboutScreen({super.key, required this.permissions});
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +23,7 @@ class NPhotosAboutScreen extends StatelessWidget {
         appInfo: nPhotosAppInfo,
         onPermissionsTap: () => pushNPage(
           context,
-          const NPhotosPermissionsScreen(),
+          NPhotosPermissionsScreen(permissions: permissions),
         ),
         onRevokePermissionsTap: () => confirmRevokeAllPermissions(context),
       ),

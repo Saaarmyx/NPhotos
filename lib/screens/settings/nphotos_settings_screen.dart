@@ -14,8 +14,9 @@
 // Organización inteligente, Explorar y compartir) eran botones muertos
 // sin backend ni lógica; se eliminaron para producción. Volver a añadir
 // solo con funcionalidad real detrás.
+import 'package:NexoraCore/NexoraCore.dart';
 import 'package:flutter/material.dart';
-import 'package:nexora_ui/nexora_ui.dart';
+import 'package:NexoraUi/NexoraUi.dart';
 
 import 'nphotos_about_screen.dart';
 
@@ -44,7 +45,14 @@ const nPhotosAppInfo = NAboutAppInfo(
 /// Se usa `nexoraBaseSection` solo para redirigir "Acerca de" a la
 /// pantalla funcional de NPhotos; el resto hereda los pushes del kit.
 class NPhotosSettingsScreen extends StatelessWidget {
-  const NPhotosSettingsScreen({super.key});
+  /// Servicio de permisos que la ruta de ajustes necesita para llegar a
+  /// "Sobre la app" y de ahí a la gestión real.
+  final CorePermissions permissions;
+
+  const NPhotosSettingsScreen({
+    super.key,
+    required this.permissions,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -53,10 +61,7 @@ class NPhotosSettingsScreen extends StatelessWidget {
       appInfo: nPhotosAppInfo,
       appName: nPhotosAppInfo.appName,
       nexoraBaseSection: NSettingsScreen.buildNexoraBaseSection(
-        onAccountTap: () => pushNPage(
-          context,
-          NAccountScreen(profileData: nPhotosProfileData),
-        ),
+        appName: nPhotosAppInfo.appName,
         onPerformanceTap: () => pushNPage(
           context,
           const NPerformanceScreen(),
@@ -65,7 +70,10 @@ class NPhotosSettingsScreen extends StatelessWidget {
           context,
           const NPersonalizationScreen(experimentalLayout: true),
         ),
-        onAboutTap: () => pushNPage(context, const NPhotosAboutScreen()),
+        onAboutTap: () => pushNPage(
+          context,
+          NPhotosAboutScreen(permissions: permissions),
+        ),
       ),
     );
   }
